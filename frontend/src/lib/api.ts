@@ -7,8 +7,10 @@ const supabase = createClient(
 );
 
 // Create axios instance with base configuration
+const baseURL = 'http://localhost:3001';
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -20,6 +22,7 @@ api.interceptors.request.use(async (config) => {
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
   }
+
   return config;
 });
 
@@ -130,6 +133,10 @@ export const apiClient = {
     // Get available platform keys for a service
     getPlatformKeys: (serviceName: string): Promise<{ data: { success: boolean; data: PlatformApiKey[] } }> => 
       api.get(`/api/integrations/platform-keys/${serviceName}`),
+
+    // Apollo People Search
+    apolloPeopleSearch: (integrationId: string, filters: any): Promise<{ data: { success: boolean; data: any } }> => 
+      api.post(`/api/integrations/${integrationId}/apollo/people-search`, { filters }),
   },
 
   // Platform API Keys endpoints (admin only)

@@ -631,4 +631,98 @@ router.post('/:id/health-check', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+// Apollo People Search endpoint
+router.post('/:id/apollo/people-search', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    const integrationId = req.params.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    // Get the integration and verify it belongs to the user
+    const integration = await prisma.integration.findFirst({
+      where: { 
+        id: integrationId,
+        userId,
+        serviceName: 'apollo',
+        isActive: true
+      },
+      include: {
+        apiKeys: true,
+        platformKey: true
+      }
+    });
+
+    if (!integration) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Apollo integration not found or inactive' 
+      });
+    }
+
+    // Get the API key to use
+    let apiKeyToUse = '';
+    
+    if (integration.keySource === 'platform' && integration.platformKey) {
+      // Get the actual platform key (backend only)
+      const fullPlatformKey = await prisma.platformApiKey.findUnique({
+        where: { id: integration.platformKeyId! }
+      });
+      apiKeyToUse = fullPlatformKey?.apiKey || '';
+    } else if (integration.keySource === 'personal' && integration.apiKeys && integration.apiKeys.length > 0) {
+      // Get the personal API key
+      const personalKey = await prisma.apiKey.findFirst({
+        where: { 
+          integrationId: integration.id,
+          isActive: true 
+        }
+      });
+      apiKeyToUse = personalKey?.apiKey || '';
+    }
+
+    if (!apiKeyToUse) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No valid API key found for this integration' 
+      });
+    }
+
+    const filters = req.body.filters || {};
+    console.log('Apollo People Search filters:', JSON.stringify(filters, null, 2));
+
+    // Use the Apollo service to perform the actual search
+    const searchResults = await ApolloService.searchPeople(apiKeyToUse, filters);
+
+    // Update the integration's last used timestamp
+    await prisma.integration.update({
+      where: { id: integrationId },
+      data: { lastHealthCheck: new Date() }
+    });
+
+    // Update platform key usage count if using platform key
+    if (integration.keySource === 'platform' && integration.platformKeyId) {
+      await prisma.platformApiKey.update({
+        where: { id: integration.platformKeyId },
+        data: { usageCount: { increment: 1 } }
+      });
+    }
+
+    const response: ApiResponse = {
+      success: true,
+      data: searchResults,
+      message: `Found ${searchResults.people.length} people`
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    console.error('Error performing Apollo People Search:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to perform people search' 
+    });
+  }
+});
+
 export default router; 

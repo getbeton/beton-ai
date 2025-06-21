@@ -24,7 +24,8 @@ import {
   Shield,
   MoreVertical,
   ExternalLink,
-  Users
+  Users,
+  Search
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { formatDate, copyToClipboard } from '@/lib/utils';
@@ -687,6 +688,15 @@ export default function Dashboard() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {integration.serviceName === 'apollo' && integration.healthStatus === 'healthy' && (
+                                <>
+                                  <DropdownMenuItem onClick={() => router.push('/dashboard/apollo-search')}>
+                                    <Search className="mr-2 h-4 w-4" />
+                                    People Search
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
                               <DropdownMenuItem onClick={() => copyToClipboard(integration.id)}>
                                 <Copy className="mr-2 h-4 w-4" />
                                 Copy ID
