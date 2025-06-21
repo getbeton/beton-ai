@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Integration {
+  id          String   @id @default(cuid())
+  userId      String   // Supabase user ID
+  serviceName String   // "apollo", "openai", etc.
+  name        String   // User-defined name for this integration
+  isActive    Boolean  @default(true)
+  lastHealthCheck DateTime?
+  healthStatus String @default("unknown") // "healthy", "unhealthy", "unknown"
+  keySource   String   @default("personal") // "personal", "platform"
+  platformKeyId String? // Reference to platform key if using platform key
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  apiKeys     ApiKey[]
+  platformKey PlatformApiKey? @relation(fields: [platformKeyId], references: [id])
+  
+  @@unique([userId, serviceName, name])
+  @@map("integrations")
+}
+
+model ApiKey {
+  id            String   @id @default(cuid())
+  integrationId String
+  apiKey        String   // Encrypted API key (only for personal keys)
+  keyType       String   // "platform", "personal"
+  isActive      Boolean  @default(true)
+  lastUsed      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  
+  @@unique([integrationId, keyType])
+  @@map("api_keys")
+}
+
+// Platform-provided API keys (one-to-many with users)
+model PlatformApiKey {
+  id          String   @id @default(cuid())
+  serviceName String   // "apollo", "openai", etc.
+  apiKey      String   // Encrypted platform API key (backend access only)
+  isActive    Boolean  @default(true)
+  description String?  // Description of what this key is for
+  rateLimit   Int?     // Optional rate limit per day
+  usageCount  Int      @default(0) // Track how many users are using this key
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations - one platform key can be used by many integrations
+  integrations Integration[]
+  
+  @@unique([serviceName])
+  @@map("platform_api_keys")
+}
+
+model UserPreferences {
+  id        String   @id @default(cuid())
+  userId    String   @unique // Supabase user ID
+  theme     String   @default("light")
+  language  String   @default("en")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("user_preferences")
+} 
