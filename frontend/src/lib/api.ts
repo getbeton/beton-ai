@@ -123,6 +123,10 @@ export const apiClient = {
     healthCheck: (id: string): Promise<{ data: { success: boolean; data: HealthCheckResponse } }> => 
       api.post(`/api/integrations/${id}/health-check`),
 
+    // Validate API key for a service (before creating integration)
+    validateKey: (data: { serviceName: string; apiKey: string }): Promise<{ data: { success: boolean; data: any; message: string } }> => 
+      api.post('/api/integrations/validate-key', data),
+
     // Get available platform keys for a service
     getPlatformKeys: (serviceName: string): Promise<{ data: { success: boolean; data: PlatformApiKey[] } }> => 
       api.get(`/api/integrations/platform-keys/${serviceName}`),

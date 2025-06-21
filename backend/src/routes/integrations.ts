@@ -42,6 +42,7 @@ interface IntegrationResponse {
   } | null;
 }
 import { ApolloService } from '../services/apolloService';
+import { ServiceFactory } from '../services/serviceFactory';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -228,6 +229,27 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
           success: false, 
           error: 'apiKeys are required when using personal keys' 
         });
+      }
+
+      // Validate personal API keys if the service supports validation
+      if (ServiceFactory.supportsValidation(serviceName)) {
+        for (const apiKey of apiKeys) {
+          console.log(`Validating ${serviceName} API key...`);
+          const validationResult = await ServiceFactory.validateApiKey(serviceName, apiKey.apiKey);
+          
+          if (!validationResult.isHealthy) {
+            return res.status(400).json({ 
+              success: false, 
+              error: `API key validation failed: ${validationResult.message}`,
+              details: {
+                service: serviceName,
+                status: validationResult.status,
+                responseTime: validationResult.responseTime
+              }
+            });
+          }
+          console.log(`${serviceName} API key validation successful`);
+        }
       }
     }
 
@@ -476,6 +498,50 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to delete integration' 
+    });
+  }
+});
+
+// Validate API key for a service (before creating integration)
+router.post('/validate-key', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const { serviceName, apiKey } = req.body;
+
+    if (!serviceName || !apiKey) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'serviceName and apiKey are required' 
+      });
+    }
+
+    // Check if service supports validation
+    if (!ServiceFactory.supportsValidation(serviceName)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Service ${serviceName} does not support API key validation` 
+      });
+    }
+
+    // Validate the API key
+    const validationResult = await ServiceFactory.validateApiKey(serviceName, apiKey);
+
+    const response: ApiResponse = {
+      success: validationResult.isHealthy,
+      data: validationResult,
+      message: validationResult.isHealthy ? 'API key is valid' : 'API key validation failed'
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error validating API key:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to validate API key' 
     });
   }
 });

@@ -72,6 +72,8 @@ export default function Dashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [healthCheckLoading, setHealthCheckLoading] = useState<string | null>(null);
   const [platformKeys, setPlatformKeys] = useState<PlatformApiKey[]>([]);
+  const [isValidatingKey, setIsValidatingKey] = useState(false);
+  const [keyValidationResult, setKeyValidationResult] = useState<any>(null);
   const router = useRouter();
 
   const [newIntegration, setNewIntegration] = useState({
@@ -144,11 +146,38 @@ export default function Dashboard() {
     }
   };
 
+  const handleValidateKey = async () => {
+    if (!newIntegration.apiKey.trim()) {
+      toast.error('Please enter your API key');
+      return;
+    }
+
+    setIsValidatingKey(true);
+    try {
+      const response = await apiClient.integrations.validateKey({
+        serviceName: newIntegration.serviceName,
+        apiKey: newIntegration.apiKey
+      });
+      
+      setKeyValidationResult(response.data);
+      
+      if (response.data.success) {
+        toast.success('API key is valid and ready to use!');
+      } else {
+        toast.error(`Validation failed: ${response.data.message}`);
+      }
+    } catch (error: any) {
+      console.error('Error validating API key:', error);
+      toast.error(error.response?.data?.error || 'Failed to validate API key');
+      setKeyValidationResult(null);
+    } finally {
+      setIsValidatingKey(false);
+    }
+  };
+
   const handleAddIntegration = async (e: React.FormEvent) => {
     e.preventDefault();
     
-
-
     if (newIntegration.keySource === 'personal' && !newIntegration.apiKey.trim()) {
       toast.error('Please enter your API key');
       return;
@@ -443,15 +472,92 @@ export default function Dashboard() {
                           <TabsContent value="personal" className="space-y-4">
                             <div className="space-y-2">
                               <Label htmlFor="apiKey">Your API Key</Label>
-                              <Textarea
-                                id="apiKey"
-                                placeholder="Enter your API key..."
-                                value={newIntegration.apiKey}
-                                onChange={(e) => setNewIntegration({ ...newIntegration, apiKey: e.target.value })}
-                                rows={3}
-                              />
+                              <div className="relative">
+                                <Textarea
+                                  id="apiKey"
+                                  placeholder="Enter your API key..."
+                                  value={newIntegration.apiKey}
+                                  onChange={(e) => {
+                                    setNewIntegration({ ...newIntegration, apiKey: e.target.value });
+                                    setKeyValidationResult(null); // Clear previous validation result
+                                  }}
+                                  rows={3}
+                                  className={keyValidationResult ? 
+                                    (keyValidationResult.success ? 'border-green-500' : 'border-red-500') : 
+                                    ''
+                                  }
+                                />
+                                {keyValidationResult && (
+                                  <div className="absolute top-2 right-2">
+                                    {keyValidationResult.success ? (
+                                      <div className="flex items-center text-green-600">
+                                        <CheckCircle className="h-4 w-4" />
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center text-red-600">
+                                        <XCircle className="h-4 w-4" />
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Validation Button and Results */}
+                              {newIntegration.serviceName === 'apollo' && newIntegration.apiKey.trim() && (
+                                <div className="space-y-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleValidateKey}
+                                    disabled={isValidatingKey}
+                                    className="w-full"
+                                  >
+                                    {isValidatingKey ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2" />
+                                        Validating...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Shield className="h-3 w-3 mr-2" />
+                                        Validate API Key
+                                      </>
+                                    )}
+                                  </Button>
+                                  
+                                  {keyValidationResult && (
+                                    <div className={`p-2 rounded text-xs ${
+                                      keyValidationResult.success 
+                                        ? 'bg-green-50 text-green-800 border border-green-200' 
+                                        : 'bg-red-50 text-red-800 border border-red-200'
+                                    }`}>
+                                      <div className="flex items-center space-x-2">
+                                        {keyValidationResult.success ? (
+                                          <CheckCircle className="h-3 w-3" />
+                                        ) : (
+                                          <XCircle className="h-3 w-3" />
+                                        )}
+                                        <span className="font-medium">
+                                          {keyValidationResult.success ? 'Valid' : 'Invalid'}
+                                        </span>
+                                      </div>
+                                      <p className="mt-1">{keyValidationResult.message}</p>
+                                      {keyValidationResult.data?.responseTime && (
+                                        <p className="mt-1 text-xs opacity-75">
+                                          Response time: {keyValidationResult.data.responseTime}ms
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
                               <p className="text-xs text-muted-foreground">
                                 Your API key will be securely encrypted and stored.
+                                {newIntegration.serviceName === 'apollo' && (
+                                  <> We recommend validating your key before adding it.</>
+                                )}
                               </p>
                             </div>
                           </TabsContent>
