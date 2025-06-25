@@ -24,7 +24,8 @@ import {
   X,
   Plus,
   Edit3,
-  ExternalLink
+  ExternalLink,
+  Database
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -231,6 +232,16 @@ export default function ApolloSearchPage() {
   const [editableData, setEditableData] = useState<Record<string, PeopleSearchResult>>({});
   const [editingCell, setEditingCell] = useState<string | null>(null);
 
+  // Save to table state
+  const [showSaveToTableModal, setShowSaveToTableModal] = useState(false);
+  const [isSavingToTable, setIsSavingToTable] = useState(false);
+  const [saveToTableData, setSaveToTableData] = useState({
+    tableName: '',
+    tableDescription: '',
+    createNew: true,
+    existingTableId: ''
+  });
+
   // Filter state
   const [filters, setFilters] = useState<PeopleSearchFilters>({
     q: '',
@@ -396,6 +407,180 @@ export default function ApolloSearchPage() {
       ...prev,
       [section]: !prev[section]
     }));
+  };
+
+  const saveToTable = async () => {
+    if (!searchResults || searchResults.people.length === 0) {
+      toast.error('No results to save');
+      return;
+    }
+
+    if (saveToTableData.createNew && !saveToTableData.tableName.trim()) {
+      toast.error('Please enter a table name');
+      return;
+    }
+
+    setIsSavingToTable(true);
+    try {
+      // Convert current editable data to table format (column names must match exactly)
+      const tableData = searchResults.people.map(person => {
+        const currentData = getCurrentPersonData(person.id);
+        return {
+          'Name': currentData.name || `${currentData.first_name} ${currentData.last_name}`.trim(),
+          'First Name': currentData.first_name || '',
+          'Last Name': currentData.last_name || '',
+          'Title': currentData.title || '',
+          'Email': currentData.email || '',
+          'Phone': currentData.phone || '',
+          'Company': currentData.organization?.name || '',
+          'LinkedIn URL': currentData.linkedin_url || '',
+          'Seniority': currentData.seniority || '',
+          'Departments': currentData.departments?.join('; ') || '',
+          'Email Status': currentData.email_status || '',
+          'Phone Status': currentData.phone_status || '',
+          'Company Website': currentData.organization?.website_url || ''
+        };
+      });
+
+      if (saveToTableData.createNew) {
+        // Create new table with Apollo search columns
+        const defaultColumns = [
+          { 
+            name: 'Name', 
+            type: 'text' as const, 
+            isRequired: false, 
+            isEditable: true,
+            settings: { placeholder: 'Full name' }
+          },
+          { 
+            name: 'First Name', 
+            type: 'text' as const, 
+            isRequired: false, 
+            isEditable: true,
+            settings: { placeholder: 'First name' }
+          },
+          { 
+            name: 'Last Name', 
+            type: 'text' as const, 
+            isRequired: false, 
+            isEditable: true,
+            settings: { placeholder: 'Last name' }
+          },
+          { 
+            name: 'Title', 
+            type: 'text' as const, 
+            isRequired: false, 
+            isEditable: true,
+            settings: { placeholder: 'Job title' }
+          },
+          { 
+            name: 'Email', 
+            type: 'email' as const, 
+            isRequired: false, 
+            isEditable: true,
+            settings: { placeholder: 'email@company.com' }
+          },
+          { 
+            name: 'Phone', 
+            type: 'text' as const, 
+            isRequired: false, 
+            isEditable: true,
+            settings: { placeholder: 'Phone number' }
+          },
+          { 
+            name: 'Company', 
+            type: 'text' as const, 
+            isRequired: false, 
+            isEditable: true,
+            settings: { placeholder: 'Company name' }
+          },
+          { 
+            name: 'LinkedIn URL', 
+            type: 'url' as const, 
+            isRequired: false, 
+            isEditable: true,
+            settings: { placeholder: 'LinkedIn profile URL' }
+          },
+          { 
+            name: 'Seniority', 
+            type: 'text' as const, 
+            isRequired: false, 
+            isEditable: true,
+            settings: { 
+              placeholder: 'Seniority level',
+              options: ['Entry', 'Senior', 'Manager', 'Director', 'VP', 'C-Suite', 'Founder']
+            }
+          },
+          { 
+            name: 'Departments', 
+            type: 'text' as const, 
+            isRequired: false, 
+            isEditable: true,
+            settings: { placeholder: 'Department(s)' }
+          },
+          { 
+            name: 'Email Status', 
+            type: 'text' as const, 
+            isRequired: false, 
+            isEditable: false,
+            settings: { 
+              readOnly: true,
+              options: ['verified', 'guessed', 'unavailable', 'bounced']
+            }
+          },
+          { 
+            name: 'Phone Status', 
+            type: 'text' as const, 
+            isRequired: false, 
+            isEditable: false,
+            settings: { 
+              readOnly: true,
+              options: ['verified', 'guessed', 'unavailable']
+            }
+          },
+          { 
+            name: 'Company Website', 
+            type: 'url' as const, 
+            isRequired: false, 
+            isEditable: true,
+            settings: { placeholder: 'Company website URL' }
+          }
+        ];
+
+        const response = await apiClient.tables.create({
+          name: saveToTableData.tableName,
+          description: saveToTableData.tableDescription || `Apollo search results imported on ${new Date().toLocaleDateString()}`,
+          sourceType: 'apollo_search',
+          columns: defaultColumns
+        });
+
+        if (response.data.success) {
+          const tableId = response.data.data.id;
+          
+          // Import data to the new table using bulk add rows
+          await apiClient.tables.bulkAddRows(tableId, tableData);
+
+          toast.success(`Successfully saved ${tableData.length} people to table "${saveToTableData.tableName}"`);
+          setShowSaveToTableModal(false);
+          
+          // Reset form
+          setSaveToTableData({
+            tableName: '',
+            tableDescription: '',
+            createNew: true,
+            existingTableId: ''
+          });
+        }
+      } else {
+        // Add to existing table (future implementation)
+        toast.error('Adding to existing table is not yet implemented');
+      }
+    } catch (error: any) {
+      console.error('Error saving to table:', error);
+      toast.error(error.message || 'Failed to save to table');
+    } finally {
+      setIsSavingToTable(false);
+    }
   };
 
   const downloadResults = () => {
@@ -1006,10 +1191,16 @@ export default function ApolloSearchPage() {
                   )}
                 </div>
                 {searchResults && searchResults.people.length > 0 && (
-                  <Button onClick={downloadResults} variant="outline">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download CSV
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={() => setShowSaveToTableModal(true)} variant="default">
+                      <Database className="h-4 w-4 mr-2" />
+                      Save to Table
+                    </Button>
+                    <Button onClick={downloadResults} variant="outline">
+                      <Download className="h-4 w-4 mr-2" />
+                      Download CSV
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardHeader>
@@ -1226,6 +1417,86 @@ export default function ApolloSearchPage() {
           </Card>
         </div>
       </div>
+
+      {/* Save to Table Modal */}
+      <Dialog open={showSaveToTableModal} onOpenChange={setShowSaveToTableModal}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Save Results to Table</DialogTitle>
+            <DialogDescription>
+              Save your Apollo search results to a table for further management and organization.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="table-name">Table Name</Label>
+              <Input
+                id="table-name"
+                placeholder="e.g., Lead Generation Q4 2024"
+                value={saveToTableData.tableName}
+                onChange={(e) => setSaveToTableData(prev => ({ ...prev, tableName: e.target.value }))}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="table-description">Description (Optional)</Label>
+              <Textarea
+                id="table-description"
+                placeholder="Brief description of this table and its purpose..."
+                value={saveToTableData.tableDescription}
+                onChange={(e) => setSaveToTableData(prev => ({ ...prev, tableDescription: e.target.value }))}
+                rows={3}
+              />
+            </div>
+
+            {searchResults && (
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p>This will save {searchResults.people.length} people to your table with all the current edits you've made.</p>
+                <p className="font-medium">Columns that will be created:</p>
+                <div className="text-xs grid grid-cols-2 gap-1 pl-2">
+                  <span>• Name</span>
+                  <span>• Title</span>
+                  <span>• Email</span>
+                  <span>• Phone</span>
+                  <span>• Company</span>
+                  <span>• LinkedIn URL</span>
+                  <span>• Seniority</span>
+                  <span>• Departments</span>
+                  <span>• Email Status</span>
+                  <span>• Phone Status</span>
+                  <span>• Company Website</span>
+                  <span>• First/Last Name</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowSaveToTableModal(false)}
+              disabled={isSavingToTable}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveToTable}
+              disabled={isSavingToTable || !saveToTableData.tableName.trim()}
+            >
+              {isSavingToTable ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Database className="h-4 w-4 mr-2" />
+                  Save to Table
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

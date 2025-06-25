@@ -8,6 +8,7 @@ import rateLimit from 'express-rate-limit';
 import integrationsRouter from './routes/integrations';
 import authRouter from './routes/auth';
 import platformKeysRouter from './routes/platformKeys';
+import tablesRouter from './routes/tables';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 
@@ -56,6 +57,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/integrations', authMiddleware, integrationsRouter);
 app.use('/api/platform-keys', authMiddleware, platformKeysRouter);
+app.use('/api/tables', authMiddleware, tablesRouter);
 
 // Test endpoint for JWT authentication status
 app.get('/api/auth/test', authMiddleware, (req: any, res) => {

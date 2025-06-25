@@ -98,6 +98,104 @@ export interface HealthCheckResponse {
   responseTime?: number;
 }
 
+// Table Management Types
+export interface UserTable {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  sourceType: string;
+  sourceId?: string;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  columns?: TableColumn[];
+  rows?: TableRow[];
+  formattedRows?: Record<string, any>[];
+  totalRows?: number;
+  pagination?: {
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  _count?: {
+    columns: number;
+    rows: number;
+  };
+}
+
+export interface TableColumn {
+  id: string;
+  tableId: string;
+  name: string;
+  type: 'text' | 'number' | 'currency' | 'date' | 'url' | 'email' | 'checkbox';
+  isRequired: boolean;
+  isEditable: boolean;
+  defaultValue?: string;
+  order: number;
+  settings: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TableRow {
+  id: string;
+  tableId: string;
+  sourceRowId?: string;
+  isSelected: boolean;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+  cells?: TableCell[];
+}
+
+export interface TableCell {
+  id: string;
+  rowId: string;
+  columnId: string;
+  value?: string;
+  createdAt: string;
+  updatedAt: string;
+  column?: TableColumn;
+}
+
+export interface CreateTableRequest {
+  name: string;
+  description?: string;
+  sourceType?: string;
+  sourceId?: string;
+  columns?: {
+    name: string;
+    type: 'text' | 'number' | 'currency' | 'date' | 'url' | 'email' | 'checkbox';
+    isRequired?: boolean;
+    isEditable?: boolean;
+    defaultValue?: string;
+    settings?: Record<string, any>;
+  }[];
+}
+
+export interface UpdateTableRequest {
+  name?: string;
+  description?: string;
+  isArchived?: boolean;
+}
+
+export interface CreateColumnRequest {
+  name: string;
+  type: 'text' | 'number' | 'currency' | 'date' | 'url' | 'email' | 'checkbox';
+  isRequired?: boolean;
+  isEditable?: boolean;
+  defaultValue?: string;
+  settings?: Record<string, any>;
+}
+
+export interface TableFilter {
+  columnId: string;
+  condition: string;
+  value: string;
+  value2?: string; // For between conditions
+}
+
 // API methods
 export const apiClient = {
   // Auth endpoints
@@ -168,6 +266,71 @@ export const apiClient = {
 
     getStats: (): Promise<{ data: { success: boolean; data: any[] } }> => 
       api.get('/api/platform-keys/stats'),
+  },
+
+  // Table Management endpoints
+  tables: {
+    list: (archived = false): Promise<{ data: { success: boolean; data: UserTable[] } }> => 
+      api.get(`/api/tables?archived=${archived}`),
+
+    get: (id: string, options?: {
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+      search?: string;
+      filters?: TableFilter[];
+    }): Promise<{ data: { success: boolean; data: UserTable } }> => {
+      const params = new URLSearchParams();
+      if (options?.page) params.append('page', options.page.toString());
+      if (options?.limit) params.append('limit', options.limit.toString());
+      if (options?.sortBy) params.append('sortBy', options.sortBy);
+      if (options?.sortOrder) params.append('sortOrder', options.sortOrder);
+      if (options?.search) params.append('search', options.search);
+      if (options?.filters && options.filters.length > 0) {
+        params.append('filters', JSON.stringify(options.filters));
+      }
+      
+      const queryString = params.toString();
+      return api.get(`/api/tables/${id}${queryString ? `?${queryString}` : ''}`);
+    },
+
+    create: (data: CreateTableRequest): Promise<{ data: { success: boolean; data: UserTable } }> => 
+      api.post('/api/tables', data),
+
+    update: (id: string, data: UpdateTableRequest): Promise<{ data: { success: boolean; data: UserTable } }> => 
+      api.put(`/api/tables/${id}`, data),
+
+    delete: (id: string): Promise<{ data: { success: boolean } }> => 
+      api.delete(`/api/tables/${id}`),
+
+    // Column management
+    addColumn: (tableId: string, data: CreateColumnRequest): Promise<{ data: { success: boolean; data: TableColumn } }> => 
+      api.post(`/api/tables/${tableId}/columns`, data),
+
+    updateColumn: (tableId: string, columnId: string, data: Partial<CreateColumnRequest>): Promise<{ data: { success: boolean; data: TableColumn } }> => 
+      api.put(`/api/tables/${tableId}/columns/${columnId}`, data),
+
+    deleteColumn: (tableId: string, columnId: string): Promise<{ data: { success: boolean } }> => 
+      api.delete(`/api/tables/${tableId}/columns/${columnId}`),
+
+    // Row management
+    addRow: (tableId: string, data: Record<string, any>): Promise<{ data: { success: boolean; data: TableRow } }> => 
+      api.post(`/api/tables/${tableId}/rows`, { data }),
+
+    bulkAddRows: (tableId: string, rows: Record<string, any>[]): Promise<{ data: { success: boolean; data: TableRow[] } }> => 
+      api.post(`/api/tables/${tableId}/rows/bulk`, { rows }),
+
+    deleteRow: (tableId: string, rowId: string): Promise<{ data: { success: boolean } }> => 
+      api.delete(`/api/tables/${tableId}/rows/${rowId}`),
+
+    // Cell management
+    updateCell: (tableId: string, rowId: string, columnId: string, value: any): Promise<{ data: { success: boolean; data: TableCell } }> => 
+      api.put(`/api/tables/${tableId}/rows/${rowId}/cells/${columnId}`, { value }),
+
+    // Import from Apollo
+    importFromApollo: (tableId: string, searchResults: any): Promise<{ data: { success: boolean; data: TableRow[] } }> => 
+      api.post(`/api/tables/${tableId}/import/apollo`, { searchResults }),
   },
 
   // Legacy API Keys endpoints (for backward compatibility if needed)

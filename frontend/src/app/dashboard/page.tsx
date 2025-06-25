@@ -25,7 +25,8 @@ import {
   MoreVertical,
   ExternalLink,
   Users,
-  Search
+  Search,
+  Table
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { formatDate, copyToClipboard } from '@/lib/utils';
@@ -405,6 +406,48 @@ export default function Dashboard() {
                 {integrations.filter(i => i.keySource === 'personal').length} personal keys
               </p>
             </CardContent>
+          </Card>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid gap-4 md:grid-cols-2 mb-8">
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/dashboard/tables')}>
+            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+              <div className="flex items-center space-x-4">
+                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                  <Table className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Tables</CardTitle>
+                  <CardDescription className="text-sm">
+                    Manage your data tables and imported search results
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+          
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => {
+            const apolloIntegration = integrations.find(i => i.serviceName === 'apollo' && i.healthStatus === 'healthy');
+            if (apolloIntegration) {
+              router.push('/dashboard/apollo-search');
+            } else {
+              toast.error('Please add a healthy Apollo integration first');
+            }
+          }}>
+            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+              <div className="flex items-center space-x-4">
+                <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+                  <Search className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">People Search</CardTitle>
+                  <CardDescription className="text-sm">
+                    Search for people using Apollo's powerful database
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
           </Card>
         </div>
 
