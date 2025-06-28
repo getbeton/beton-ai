@@ -8,8 +8,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including dev dependencies for building)
+RUN npm ci
 
 # Copy source code
 COPY . .
@@ -19,6 +19,9 @@ RUN npx prisma generate
 
 # Build TypeScript
 RUN npm run build
+
+# Remove node_modules and reinstall only production dependencies
+RUN rm -rf node_modules && npm ci --only=production
 
 # Copy startup script and make it executable
 COPY start.sh ./

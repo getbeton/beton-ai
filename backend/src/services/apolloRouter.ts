@@ -81,15 +81,28 @@ export class ApolloRouter {
     
     console.log(`🌐 Calling real Apollo API: ${realUrl}`);
     
-    const response = await fetch(realUrl, {
-      method: 'POST',
+    // Health endpoint uses GET, others use POST
+    const isHealthEndpoint = endpoint.includes('/health');
+    const method = isHealthEndpoint ? 'GET' : 'POST';
+    
+    const fetchOptions: RequestInit = {
+      method,
       headers: {
-        'Content-Type': 'application/json',
         'X-Api-Key': apiKey
       },
-      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(this.config.realService.timeout)
-    });
+    };
+    
+    // Only add JSON body for POST requests
+    if (method === 'POST') {
+      fetchOptions.headers = {
+        ...fetchOptions.headers,
+        'Content-Type': 'application/json'
+      };
+      fetchOptions.body = JSON.stringify(payload);
+    }
+    
+    const response = await fetch(realUrl, fetchOptions);
     
     if (!response.ok) {
       throw new Error(`Real Apollo API error: ${response.status} ${response.statusText}`);

@@ -122,7 +122,7 @@ export class ApolloService {
       }
 
       // Route the request through the Apollo router
-      const data = await ApolloRouter.routeRequest('/api/v1/auth/health', apiKey, {});
+      const data = await ApolloRouter.routeRequest('/v1/auth/health', apiKey, {});
       const responseTime = Date.now() - startTime;
       
       // According to Apollo docs, both values should be true for a healthy key
