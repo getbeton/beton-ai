@@ -1,0 +1,29 @@
+{
+  "mode": "mixed",
+  "endpoints": {
+    "/v1/auth/health": {
+      "mode": "real",
+      "description": "Health checks always use real Apollo API"
+    },
+    "/api/v1/mixed_people/search": {
+      "mode": "configurable",
+      "default": "mock",
+      "description": "People search can be mock or real based on environment"
+    },
+    "/api/v1/organizations/search": {
+      "mode": "configurable", 
+      "default": "mock",
+      "description": "Organization search configurable"
+    }
+  },
+  "mockService": {
+    "url": "http://localhost:3002",
+    "timeout": 30000,
+    "retries": 3
+  },
+  "realService": {
+    "baseUrl": "https://api.apollo.io",
+    "timeout": 30000,
+    "retries": 1
+  }
+} 

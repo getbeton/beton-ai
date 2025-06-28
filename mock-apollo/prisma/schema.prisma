@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model MockOrganization {
+  id          String   @id @default(cuid())
+  name        String
+  domain      String   @unique
+  websiteUrl  String?
+  linkedinUrl String?
+  industry    String
+  size        String   // "1-10", "11-50", etc.
+  foundedYear Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  people    MockPerson[]
+  locations MockLocation[]
+
+  // Indexes for search performance
+  @@index([name])
+  @@index([industry])
+  @@index([size])
+  @@index([createdAt])
+  @@map("mock_organizations")
+}
+
+model MockPerson {
+  id           String  @id @default(cuid())
+  firstName    String
+  lastName     String
+  name         String
+  title        String
+  email        String?
+  phone        String?
+  linkedinUrl  String?
+  seniority    String  // "owner", "founder", "c_suite", etc.
+  departments  String[] // Array of department names
+  emailStatus  String  // "verified", "guessed", "unavailable"
+  phoneStatus  String  // "verified", "guessed", "unavailable"
+  
+  // Organization relationship
+  organizationId String
+  organization   MockOrganization @relation(fields: [organizationId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes for search and pagination performance
+  @@index([name])
+  @@index([title])
+  @@index([seniority])
+  @@index([emailStatus])
+  @@index([phoneStatus])
+  @@index([createdAt])
+  @@index([organizationId])
+  @@index([organizationId, createdAt])  // Composite for org-based pagination
+  @@index([name, createdAt])            // Composite for name searches with pagination
+  @@map("mock_people")
+}
+
+model MockLocation {
+  id      String @id @default(cuid())
+  name    String
+  country String
+  region  String?
+  
+  // Organization relationship
+  organizationId String
+  organization   MockOrganization @relation(fields: [organizationId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes for location-based searches
+  @@index([name])
+  @@index([country])
+  @@index([organizationId])
+  @@map("mock_locations")
+}
+
+model ServiceConfig {
+  key         String   @id
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("service_config")
+}
+
+model BreadcrumbCache {
+  id           String   @id @default(cuid())
+  category     String   // "person_titles", "person_seniorities", etc.
+  filterKey    String   // Stringified filter conditions
+  data         String   // JSON string of breadcrumb data
+  generatedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([category, filterKey])
+  @@map("breadcrumb_cache")
+} 
