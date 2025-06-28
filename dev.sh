@@ -11,22 +11,36 @@ echo "5) Backend Dev Only"
 echo "6) Frontend Dev Only"
 echo ""
 read -p "Enter your choice (1-6): " choice
+echo ""
+read -p "Include Mock Apollo Service? (y/n): " mock_apollo
+
+# Build services list based on mock Apollo choice
+MOCK_APOLLO_SERVICES=""
+if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
+    MOCK_APOLLO_SERVICES="mock-postgres mock-apollo"
+    echo "📡 Mock Apollo Service will be included on port 3002"
+    echo "📊 Mock PostgreSQL will be included on port 5433"
+    echo ""
+fi
 
 case $choice in
     1)
         echo "🐳 Starting all services in Docker..."
-        docker-compose up -d
+        docker-compose up -d postgres redis backend frontend $MOCK_APOLLO_SERVICES
         echo ""
         echo "✅ All services running in Docker:"
         echo "   - Frontend: http://localhost:3000"
         echo "   - Backend: http://localhost:3001"
         echo "   - PostgreSQL: localhost:5432"
         echo "   - Redis: localhost:6379"
+        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
+            echo "   - Mock Apollo: http://localhost:3002"
+        fi
         ;;
     2)
         echo "🎨 Starting Frontend Dev + Backend Docker (Hot Reload)..."
         echo "📦 Starting backend services..."
-        docker-compose up postgres redis backend -d
+        docker-compose up postgres redis backend $MOCK_APOLLO_SERVICES -d
         
         echo "⏳ Waiting for services to start..."
         sleep 5
@@ -35,9 +49,15 @@ case $choice in
         echo "   - PostgreSQL: localhost:5432"
         echo "   - Redis: localhost:6379"
         echo "   - Backend API: http://localhost:3001"
+        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
+            echo "   - Mock Apollo: http://localhost:3002"
+        fi
         echo ""
         echo "🎨 Starting frontend in development mode..."
         echo "   - Frontend: http://localhost:3000 (Hot Reload)"
+        echo ""
+        echo "💡 Note: If port 3000 is busy, Next.js will auto-select another port"
+        echo "   Make sure it doesn't conflict with Mock Apollo (port 3002)"
         echo ""
         
         cd frontend && npm run dev
@@ -45,7 +65,7 @@ case $choice in
     3)
         echo "⚡ Starting Backend Dev + Frontend Docker..."
         echo "📦 Starting frontend and database..."
-        docker-compose up postgres redis frontend -d
+        docker-compose up postgres redis frontend $MOCK_APOLLO_SERVICES -d
         
         echo "⏳ Waiting for services to start..."
         sleep 5
@@ -54,6 +74,9 @@ case $choice in
         echo "   - Frontend: http://localhost:3000"
         echo "   - PostgreSQL: localhost:5432"
         echo "   - Redis: localhost:6379"
+        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
+            echo "   - Mock Apollo: http://localhost:3002"
+        fi
         echo ""
         echo "⚡ Starting backend in development mode..."
         echo "   - Backend: http://localhost:3001 (Hot Reload)"
@@ -63,8 +86,8 @@ case $choice in
         ;;
     4)
         echo "🔥 Starting Both Dev (Frontend + Backend Hot Reload)..."
-        echo "📦 Starting PostgreSQL and Redis..."
-        docker-compose up postgres redis -d
+        echo "📦 Starting PostgreSQL, Redis and optional services..."
+        docker-compose up postgres redis $MOCK_APOLLO_SERVICES -d
         
         echo "⏳ Waiting for services to start..."
         sleep 3
@@ -72,6 +95,9 @@ case $choice in
         echo "✅ Services are running:"
         echo "   - PostgreSQL: localhost:5432"
         echo "   - Redis: localhost:6379"
+        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
+            echo "   - Mock Apollo: http://localhost:3002"
+        fi
         echo ""
         echo "🔥 Starting both frontend and backend in development mode..."
         echo "   - Frontend: http://localhost:3000 (Hot Reload)"
@@ -94,8 +120,8 @@ case $choice in
         ;;
     5)
         echo "⚡ Starting Backend Dev Only..."
-        echo "📦 Starting PostgreSQL and Redis..."
-        docker-compose up postgres redis -d
+        echo "📦 Starting PostgreSQL, Redis and optional services..."
+        docker-compose up postgres redis $MOCK_APOLLO_SERVICES -d
         
         echo "⏳ Waiting for services to start..."
         sleep 3
@@ -103,6 +129,9 @@ case $choice in
         echo "✅ Services are running:"
         echo "   - PostgreSQL: localhost:5432"
         echo "   - Redis: localhost:6379"
+        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
+            echo "   - Mock Apollo: http://localhost:3002"
+        fi
         echo ""
         
         ./dev-backend.sh
@@ -110,7 +139,7 @@ case $choice in
     6)
         echo "🎨 Starting Frontend Dev Only..."
         echo "📦 Starting backend services..."
-        docker-compose up postgres redis backend -d
+        docker-compose up postgres redis backend $MOCK_APOLLO_SERVICES -d
         
         echo "⏳ Waiting for services to start..."
         sleep 5
@@ -119,6 +148,9 @@ case $choice in
         echo "   - Backend API: http://localhost:3001"
         echo "   - PostgreSQL: localhost:5432"
         echo "   - Redis: localhost:6379"
+        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
+            echo "   - Mock Apollo: http://localhost:3002"
+        fi
         echo ""
         
         cd frontend && npm run dev

@@ -22,4 +22,20 @@ services:
           path: ./frontend/public
           target: /app/public
         - action: rebuild
-          path: ./frontend/package.json 
+          path: ./frontend/package.json
+
+  mock-apollo:
+    build:
+      context: ./mock-apollo
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/mock_apollo_dev
+      NODE_ENV: development
+      PORT: 3002
+      LOG_LEVEL: debug
+    ports:
+      - "3002:3002"
+    depends_on:
+      - postgres
+    networks:
+      - default 

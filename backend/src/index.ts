@@ -10,6 +10,7 @@ import authRouter from './routes/auth';
 import platformKeysRouter from './routes/platformKeys';
 import tablesRouter from './routes/tables';
 import bulkDownloadRouter from './routes/bulkDownload';
+import apolloConfigRouter from './routes/apolloConfig';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 import { WebSocketService } from './services/websocketService';
@@ -62,6 +63,7 @@ app.use('/api/integrations', authMiddleware, integrationsRouter);
 app.use('/api/platform-keys', authMiddleware, platformKeysRouter);
 app.use('/api/tables', authMiddleware, tablesRouter);
 app.use('/api/bulk-download', authMiddleware, bulkDownloadRouter);
+app.use('/api/apollo', authMiddleware, apolloConfigRouter);
 
 // Test endpoint for JWT authentication status
 app.get('/api/auth/test', authMiddleware, (req: any, res) => {

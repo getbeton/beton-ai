@@ -8,6 +8,7 @@ An open-source automation platform that helps teams streamline their workflows a
 - **Backend**: Express.js, TypeScript, Prisma ORM
 - **Database**: PostgreSQL
 - **Authentication**: Supabase (Google, GitHub, Email/Password)
+- **Mock Services**: Standalone Apollo API mock with 100K entities
 - **Containerization**: Docker & Docker Compose
 
 ## 📋 Features
@@ -15,8 +16,21 @@ An open-source automation platform that helps teams streamline their workflows a
 - 🔐 **Secure Authentication** - Multiple sign-in options via Supabase
 - 🔑 **API Key Management** - Store and manage API keys for various services
 - 🎨 **Modern UI** - Clean, professional interface for both technical and sales teams
-- 🐳 **Docker Ready** - Full containerization support
+- 🎭 **Mock Apollo Service** - Standalone service with 100K mock entities for development
+- 🐳 **Docker Ready** - Full containerization support with automated database setup
 - 🔄 **Real-time Updates** - Dynamic page refreshing after changes
+
+## 🎭 Mock Apollo Service
+
+This project includes a standalone Apollo API mock service for development:
+
+- **📊 100K Mock Entities** - Pre-seeded with realistic people, organizations, and locations
+- **🔧 Separate Database** - Uses its own `mock_apollo` PostgreSQL database
+- **⚡ Configurable Latency** - Simulates real-world API response times
+- **🔀 Smart Routing** - Backend automatically routes between mock/real Apollo APIs
+- **🚀 Auto-Setup** - Database and data seeding handled automatically
+
+The mock service runs on port 3002 and provides Apollo-compatible endpoints for development without requiring real API keys.
 
 ## 🛠️ Development Setup
 
@@ -26,31 +40,45 @@ An open-source automation platform that helps teams streamline their workflows a
 - Docker and Docker Compose
 - PostgreSQL (if running locally)
 
-### Quick Start with Database Setup
+### 🚀 **First Time Setup (Recommended)**
 
-1. **Clone and Install Dependencies**
-   ```bash
-   npm run install:all
-   ```
+For new users, use our automated setup script:
 
-2. **Set up Database and Environment**
-   
-   Run the automated setup script:
-   ```bash
-   ./setup-db.sh
-   ```
-   
-   This script will:
-   - Check if Docker is running
-   - Create environment files from examples (if they don't exist)
-   - Start PostgreSQL container with health checks
-   - Run database migrations automatically
-   - Generate Prisma client
+```bash
+git clone <repository-url>
+cd beton-ai
+./setup-first-time.sh
+```
 
-3. **Start All Services**
-   ```bash
-   docker-compose up
-   ```
+This script will:
+- ✅ Create all environment files automatically
+- ✅ Install dependencies
+- ✅ Build and start all Docker services
+- ✅ Create separate `mock_apollo` database
+- ✅ Seed 100K mock entities for development
+- ✅ Start the complete development environment
+
+**Services will be available at:**
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:3001
+- Mock Apollo: http://localhost:3002
+- PostgreSQL: localhost:5432
+- Redis: localhost:6379
+
+### 🔧 **Development Mode Selection**
+
+Use the interactive development script:
+
+```bash
+./dev.sh
+```
+
+Choose your preferred development mode:
+- **Option 1**: Full Docker (recommended for first-time setup)
+- **Option 2**: Frontend Dev + Backend Docker (hot reload frontend)
+- **Option 3**: Backend Dev + Frontend Docker (hot reload backend)  
+- **Option 4**: Both Dev (hot reload both services)
+- **Include Mock Apollo**: **Yes** (recommended for development)
 
 ### Manual Environment Setup (Alternative)
 
@@ -153,7 +181,9 @@ beton-ai/
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:3001
+- **Mock Apollo**: http://localhost:3002
 - **PostgreSQL**: localhost:5432
+- **Redis**: localhost:6379
 
 ## 🗄️ Database Management
 
