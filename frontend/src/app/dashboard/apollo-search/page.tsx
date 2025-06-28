@@ -52,6 +52,7 @@ import {
   DialogTrigger 
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { BulkDownloadModal } from '@/components/BulkDownloadModal';
 
 // Apollo People Search types
 interface PeopleSearchFilters {
@@ -241,6 +242,9 @@ export default function ApolloSearchPage() {
     createNew: true,
     existingTableId: ''
   });
+
+  // Bulk download state
+  const [showBulkDownloadModal, setShowBulkDownloadModal] = useState(false);
 
   // Filter state
   const [filters, setFilters] = useState<PeopleSearchFilters>({
@@ -1192,9 +1196,13 @@ export default function ApolloSearchPage() {
                 </div>
                 {searchResults && searchResults.people.length > 0 && (
                   <div className="flex gap-2">
-                    <Button onClick={() => setShowSaveToTableModal(true)} variant="default">
+                    <Button onClick={() => setShowSaveToTableModal(true)} variant="outline">
                       <Database className="h-4 w-4 mr-2" />
-                      Save to Table
+                      Save Current Page ({searchResults.people.length})
+                    </Button>
+                    <Button onClick={() => setShowBulkDownloadModal(true)} variant="default">
+                      <Database className="h-4 w-4 mr-2" />
+                      Bulk Download All ({searchResults.pagination.total_entries})
                     </Button>
                     <Button onClick={downloadResults} variant="outline">
                       <Download className="h-4 w-4 mr-2" />
@@ -1497,6 +1505,26 @@ export default function ApolloSearchPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Download Modal */}
+      {searchResults && (
+        <BulkDownloadModal
+          isOpen={showBulkDownloadModal}
+          onClose={() => setShowBulkDownloadModal(false)}
+          searchQuery={{
+            ...filters,
+            // Clean pagination parameters to ensure bulk download works correctly
+            page: undefined,
+            per_page: undefined
+          }}
+          integrationId={selectedIntegration || ''}
+          onJobCreated={(jobId) => {
+            console.log('Bulk download job created:', jobId);
+            // You can navigate to the jobs dashboard or show a notification
+            toast.success('Bulk download started! Check the Jobs dashboard to monitor progress.');
+          }}
+        />
+      )}
     </div>
   );
 } 

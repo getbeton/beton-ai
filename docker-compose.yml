@@ -19,6 +19,22 @@ services:
       retries: 5
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: beton-ai-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - beton-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -28,10 +44,14 @@ services:
       - ./backend/.env
     environment:
       DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/beton_ai
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     ports:
       - "3001:3001"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - beton-network
@@ -55,6 +75,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   beton-network:

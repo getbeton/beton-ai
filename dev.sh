@@ -21,17 +21,19 @@ case $choice in
         echo "   - Frontend: http://localhost:3000"
         echo "   - Backend: http://localhost:3001"
         echo "   - PostgreSQL: localhost:5432"
+        echo "   - Redis: localhost:6379"
         ;;
     2)
         echo "🎨 Starting Frontend Dev + Backend Docker (Hot Reload)..."
         echo "📦 Starting backend services..."
-        docker-compose up postgres backend -d
+        docker-compose up postgres redis backend -d
         
         echo "⏳ Waiting for services to start..."
         sleep 5
         
         echo "✅ Backend services are running!"
         echo "   - PostgreSQL: localhost:5432"
+        echo "   - Redis: localhost:6379"
         echo "   - Backend API: http://localhost:3001"
         echo ""
         echo "🎨 Starting frontend in development mode..."
@@ -43,7 +45,7 @@ case $choice in
     3)
         echo "⚡ Starting Backend Dev + Frontend Docker..."
         echo "📦 Starting frontend and database..."
-        docker-compose up postgres frontend -d
+        docker-compose up postgres redis frontend -d
         
         echo "⏳ Waiting for services to start..."
         sleep 5
@@ -51,6 +53,7 @@ case $choice in
         echo "✅ Frontend and database are running!"
         echo "   - Frontend: http://localhost:3000"
         echo "   - PostgreSQL: localhost:5432"
+        echo "   - Redis: localhost:6379"
         echo ""
         echo "⚡ Starting backend in development mode..."
         echo "   - Backend: http://localhost:3001 (Hot Reload)"
@@ -60,13 +63,15 @@ case $choice in
         ;;
     4)
         echo "🔥 Starting Both Dev (Frontend + Backend Hot Reload)..."
-        echo "📦 Starting PostgreSQL..."
-        docker-compose up postgres -d
+        echo "📦 Starting PostgreSQL and Redis..."
+        docker-compose up postgres redis -d
         
-        echo "⏳ Waiting for database to start..."
+        echo "⏳ Waiting for services to start..."
         sleep 3
         
-        echo "✅ PostgreSQL is running on localhost:5432"
+        echo "✅ Services are running:"
+        echo "   - PostgreSQL: localhost:5432"
+        echo "   - Redis: localhost:6379"
         echo ""
         echo "🔥 Starting both frontend and backend in development mode..."
         echo "   - Frontend: http://localhost:3000 (Hot Reload)"
@@ -89,13 +94,15 @@ case $choice in
         ;;
     5)
         echo "⚡ Starting Backend Dev Only..."
-        echo "📦 Starting PostgreSQL..."
-        docker-compose up postgres -d
+        echo "📦 Starting PostgreSQL and Redis..."
+        docker-compose up postgres redis -d
         
-        echo "⏳ Waiting for database to start..."
+        echo "⏳ Waiting for services to start..."
         sleep 3
         
-        echo "✅ PostgreSQL is running on localhost:5432"
+        echo "✅ Services are running:"
+        echo "   - PostgreSQL: localhost:5432"
+        echo "   - Redis: localhost:6379"
         echo ""
         
         ./dev-backend.sh
@@ -103,7 +110,7 @@ case $choice in
     6)
         echo "🎨 Starting Frontend Dev Only..."
         echo "📦 Starting backend services..."
-        docker-compose up postgres backend -d
+        docker-compose up postgres redis backend -d
         
         echo "⏳ Waiting for services to start..."
         sleep 5
@@ -111,6 +118,7 @@ case $choice in
         echo "✅ Backend services are running!"
         echo "   - Backend API: http://localhost:3001"
         echo "   - PostgreSQL: localhost:5432"
+        echo "   - Redis: localhost:6379"
         echo ""
         
         cd frontend && npm run dev

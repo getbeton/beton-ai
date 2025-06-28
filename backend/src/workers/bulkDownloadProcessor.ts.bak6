@@ -1,0 +1,334 @@
+import { Job } from 'bull';
+import { PrismaClient } from '@prisma/client';
+import { ApolloService } from '../services/apolloService';
+import { BulkDownloadJobData } from '../queues/bulkDownloadQueue';
+import { BULK_DOWNLOAD_CONFIG } from '../config/bulkDownload';
+import { WebSocketService } from '../services/websocketService';
+import { BulkDownloadService } from '../services/bulkDownloadService';
+
+const prisma = new PrismaClient();
+
+export class BulkDownloadProcessor {
+  /**
+   * Process a bulk download job
+   */
+    static async processBulkDownload(job: Job<BulkDownloadJobData>): Promise<void> {
+    const { jobId, userId, tableId, searchQuery, totalPages, integrationId } = job.data;
+    
+    console.log(`Starting bulk download job ${jobId} for user ${userId}`);
+
+    try {
+      // Get the integration and API key
+      const integration = await prisma.integration.findUnique({
+        where: { id: integrationId },
+        include: {
+          apiKeys: {
+            where: { isActive: true },
+            take: 1
+          },
+          platformKey: true
+        }
+      });
+
+      if (!integration) {
+        throw new Error('Integration not found');
+      }
+
+      // Get API key (from personal keys or platform key)
+      let apiKey: string;
+      if (integration.keySource === 'personal' && integration.apiKeys.length > 0) {
+        apiKey = integration.apiKeys[0].apiKey;
+      } else if (integration.keySource === 'platform' && integration.platformKey) {
+        const platformKey = await prisma.platformApiKey.findUnique({
+          where: { id: integration.platformKeyId! }
+        });
+        if (!platformKey) {
+          throw new Error('Platform API key not found');
+        }
+        apiKey = platformKey.apiKey;
+      } else {
+        throw new Error('No valid API key found for integration');
+      }
+      // Mark job as running
+      await prisma.bulkDownloadJob.update({
+        where: { id: jobId },
+        data: { 
+          status: BULK_DOWNLOAD_CONFIG.JOB_STATUS.RUNNING,
+          startedAt: new Date()
+        }
+      });
+
+      // Get table columns for data mapping
+      const table = await prisma.userTable.findUnique({
+        where: { id: tableId },
+        include: { columns: { orderBy: { order: 'asc' } } }
+      });
+
+      if (!table) {
+        throw new Error('Table not found');
+      }
+
+      const columnMap = new Map(table.columns.map(col => [col.name, col]));
+      let totalProcessed = 0;
+
+      // Process each page
+      for (let page = 1; page <= totalPages; page++) {
+        try {
+          console.log(`Processing page ${page} of ${totalPages} for job ${jobId}`);
+          
+          // Update progress in database
+          await prisma.bulkDownloadJob.update({
+            where: { id: jobId },
+            data: { currentPage: page }
+          });
+
+          // Fetch data from Apollo - ensure we override any existing pagination
+          const cleanSearchQuery = { ...searchQuery };
+          // Remove any existing pagination parameters that might interfere
+          delete cleanSearchQuery.page;
+          delete cleanSearchQuery.per_page;
+          
+          const apolloResults = await ApolloService.searchPeople(apiKey, {
+            ...cleanSearchQuery,
+            page,
+            per_page: 100
+          });
+
+          // Step 1: Create rows data (without nested cells)
+          const rowsData = apolloResults.people.map((person, index) => ({
+            tableId,
+            order: totalProcessed + index + 1
+          }));
+
+          // Step 2: Bulk insert all rows at once using createMany
+          console.log(`Page ${page}/${totalPages}: Bulk inserting ${rowsData.length} rows...`);
+          const startTime = Date.now();
+          
+          await prisma.tableRow.createMany({
+            data: rowsData,
+            skipDuplicates: true
+          });
+          
+          console.log(`Page ${page}/${totalPages}: Rows inserted in ${Date.now() - startTime}ms`);
+
+          // Step 3: Fetch the created rows to get their IDs
+          console.log(`Page ${page}/${totalPages}: Fetching created row IDs...`);
+          const createdRows = await prisma.tableRow.findMany({
+            where: {
+              tableId,
+              order: {
+                gte: totalProcessed + 1,
+                lte: totalProcessed + apolloResults.people.length
+              }
+            },
+            orderBy: { order: 'asc' },
+            select: { id: true, order: true }
+          });
+
+          // Step 4: Prepare all cell data for bulk insert
+          console.log(`Page ${page}/${totalPages}: Preparing ${createdRows.length} rows worth of cell data...`);
+          const allCellsData: any[] = [];
+          createdRows.forEach((row, index) => {
+            const person = apolloResults.people[index];
+            const cellsForThisRow = [
+              { rowId: row.id, ...this.createCell(columnMap, 'First Name', person.first_name || '') },
+              { rowId: row.id, ...this.createCell(columnMap, 'Last Name', person.last_name || '') },
+              { rowId: row.id, ...this.createCell(columnMap, 'Email', person.email || '') },
+              { rowId: row.id, ...this.createCell(columnMap, 'Phone', person.phone || '') },
+              { rowId: row.id, ...this.createCell(columnMap, 'Title', person.title || '') },
+              { rowId: row.id, ...this.createCell(columnMap, 'Company', person.organization?.name || '') },
+              { rowId: row.id, ...this.createCell(columnMap, 'LinkedIn', person.linkedin_url || '') },
+              { rowId: row.id, ...this.createCell(columnMap, 'Location', person.organization?.locations?.[0]?.name || '') },
+              { rowId: row.id, ...this.createCell(columnMap, 'Seniority', person.seniority || '') },
+              { rowId: row.id, ...this.createCell(columnMap, 'Department', person.departments?.join(', ') || '') }
+            ].filter(cell => cell.columnId); // Remove null cells
+            
+            allCellsData.push(...cellsForThisRow);
+          });
+
+          // Step 5: Bulk insert all cells at once using createMany
+          if (allCellsData.length > 0) {
+            console.log(`Page ${page}/${totalPages}: Bulk inserting ${allCellsData.length} cells...`);
+            const cellStartTime = Date.now();
+            
+            await prisma.tableCell.createMany({
+              data: allCellsData,
+              skipDuplicates: true
+            });
+            
+            console.log(`Page ${page}/${totalPages}: Cells inserted in ${Date.now() - cellStartTime}ms`);
+          }
+
+          // *** IMPORTANT: Update counters AFTER data is actually inserted ***
+          totalProcessed += apolloResults.people.length;
+          console.log(`Page ${page}/${totalPages}: Data insertion complete. Total processed: ${totalProcessed}`);
+
+          // Update database progress AFTER data insertion is complete
+          await prisma.bulkDownloadJob.update({
+            where: { id: jobId },
+            data: { 
+              totalProcessed,
+              currentPage: page
+            }
+          });
+
+          // Record progress for this page AFTER completion
+          await prisma.bulkDownloadProgress.create({
+            data: {
+              jobId,
+              page,
+              recordCount: apolloResults.people.length,
+              status: BULK_DOWNLOAD_CONFIG.PROGRESS_STATUS.COMPLETED
+            }
+          });
+
+          // Update Bull Queue progress AFTER data insertion
+          const progressPercentage = Math.round((page / totalPages) * 100);
+          job.progress(progressPercentage);
+          console.log(`Page ${page}/${totalPages}: Progress updated to ${progressPercentage}%`);
+
+          // Send WebSocket progress update AFTER data insertion with calculated progress
+          // FIXED: Don't rely on getJobInfo which is slow - calculate progress directly
+          const realTimeProgress = {
+            id: jobId,
+            status: 'running' as const,
+            progress: {
+              currentPage: page,
+              totalPages: totalPages,
+              processedRecords: totalProcessed,
+              totalEstimated: totalPages * 100, // Assuming 100 records per page
+              percentage: Math.round((page / totalPages) * 100)
+            },
+            createdAt: new Date(),
+            startedAt: new Date().toISOString()
+          };
+          
+          WebSocketService.sendJobProgress(userId, realTimeProgress);
+          console.log(`Page ${page}/${totalPages}: FAST WebSocket progress sent - ${realTimeProgress.progress.percentage}% (${totalProcessed} records)`);
+
+          // Also get jobInfo for comparison (debugging) - but don't wait for it
+          BulkDownloadService.getJobInfo(jobId).then(jobInfo => {
+            if (jobInfo) {
+              console.log(`Page ${page}/${totalPages}: DB progress shows ${jobInfo.progress.percentage}% vs calculated ${realTimeProgress.progress.percentage}%`);
+            }
+          }).catch(err => {
+            console.log(`Page ${page}/${totalPages}: Error getting job info for comparison:`, err.message);
+          });
+
+          // Add delay between requests to respect rate limits
+          if (page < totalPages) {
+            await this.delay(BULK_DOWNLOAD_CONFIG.APOLLO_API_DELAY_MS);
+          }
+
+        } catch (pageError: any) {
+          console.error(`Error processing page ${page} of job ${jobId}:`, pageError);
+
+          // Record failed page
+          await prisma.bulkDownloadProgress.create({
+            data: {
+              jobId,
+              page,
+              recordCount: 0,
+              status: BULK_DOWNLOAD_CONFIG.PROGRESS_STATUS.FAILED,
+              error: pageError.message
+            }
+          });
+
+          // Update failure count
+          const updatedJob = await prisma.bulkDownloadJob.update({
+            where: { id: jobId },
+            data: { 
+              failureCount: { increment: 1 },
+              lastError: `Page ${page}: ${pageError.message}`
+            }
+          });
+
+          // If we've exceeded max retries, fail the job
+          if (updatedJob.failureCount >= BULK_DOWNLOAD_CONFIG.MAX_RETRY_ATTEMPTS) {
+            throw new Error(`Job failed after ${BULK_DOWNLOAD_CONFIG.MAX_RETRY_ATTEMPTS} retries. Last error: ${pageError.message}`);
+          }
+
+          // Continue with next page for now (we might want to retry this page later)
+          continue;
+        }
+      }
+
+      // Mark job as completed
+      await prisma.bulkDownloadJob.update({
+        where: { id: jobId },
+        data: { 
+          status: BULK_DOWNLOAD_CONFIG.JOB_STATUS.COMPLETED,
+          completedAt: new Date(),
+          totalProcessed
+        }
+      });
+
+      // Unlock the table
+      await prisma.userTable.update({
+        where: { id: tableId },
+        data: { 
+          isProcessing: false,
+          processingJobId: null
+        }
+      });
+
+      console.log(`Bulk download job ${jobId} completed successfully. Processed ${totalProcessed} records.`);
+
+      // Send completion notification via WebSocket
+      const completedJobInfo = await BulkDownloadService.getJobInfo(jobId);
+      if (completedJobInfo) {
+        WebSocketService.sendJobComplete(userId, completedJobInfo);
+      }
+
+    } catch (error: any) {
+      console.error(`Bulk download job ${jobId} failed:`, error);
+
+      // Mark job as failed
+      await prisma.bulkDownloadJob.update({
+        where: { id: jobId },
+        data: { 
+          status: BULK_DOWNLOAD_CONFIG.JOB_STATUS.FAILED,
+          lastError: error.message,
+          completedAt: new Date()
+        }
+      });
+
+      // Unlock the table (keep partial data)
+      await prisma.userTable.update({
+        where: { id: tableId },
+        data: { 
+          isProcessing: false,
+          processingJobId: null
+        }
+      });
+
+      // Send failure notification via WebSocket
+      const failedJobInfo = await BulkDownloadService.getJobInfo(jobId);
+      if (failedJobInfo) {
+        WebSocketService.sendJobFailed(userId, failedJobInfo);
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Create a table cell data object
+   */
+  private static createCell(columnMap: Map<string, any>, columnName: string, value: string) {
+    const column = columnMap.get(columnName);
+    if (!column) return null;
+
+    return {
+      columnId: column.id,
+      value: value || ''
+    };
+  }
+
+  /**
+   * Add delay between requests
+   */
+  private static delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+} 

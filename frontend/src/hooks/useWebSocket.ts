@@ -1,0 +1,177 @@
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { WebSocketMessage, WebSocketAuthMessage, BulkDownloadJobInfo } from '../types/bulkDownload';
+
+interface UseWebSocketOptions {
+  userId?: string;
+  onJobProgress?: (jobInfo: BulkDownloadJobInfo) => void;
+  onJobComplete?: (jobInfo: BulkDownloadJobInfo) => void;
+  onJobFailed?: (jobInfo: BulkDownloadJobInfo) => void;
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+}
+
+export const useWebSocket = (options: UseWebSocketOptions) => {
+  const {
+    userId,
+    onJobProgress,
+    onJobComplete,
+    onJobFailed,
+    onConnect,
+    onDisconnect
+  } = options;
+
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 5;
+  const isConnectingRef = useRef(false);
+
+  const connect = useCallback(() => {
+    // Prevent multiple simultaneous connection attempts
+    if (!userId || wsRef.current || isConnectingRef.current) {
+      return;
+    }
+
+    isConnectingRef.current = true;
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001/ws';
+    
+    console.log('Connecting to WebSocket:', wsUrl);
+    setConnectionStatus('connecting');
+
+    try {
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+        setIsConnected(true);
+        setConnectionStatus('connected');
+        reconnectAttempts.current = 0;
+        isConnectingRef.current = false;
+        onConnect?.();
+
+        // Authenticate the connection
+        const authMessage: WebSocketAuthMessage = {
+          type: 'auth',
+          userId: userId
+        };
+        ws.send(JSON.stringify(authMessage));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data);
+          console.log('WebSocket message received:', message);
+
+          switch (message.type) {
+            case 'auth_success':
+              console.log('WebSocket authentication successful');
+              break;
+            case 'job_progress':
+              if (message.data && onJobProgress) {
+                onJobProgress(message.data);
+              }
+              break;
+            case 'job_complete':
+              if (message.data && onJobComplete) {
+                onJobComplete(message.data);
+              }
+              break;
+            case 'job_failed':
+              if (message.data && onJobFailed) {
+                onJobFailed(message.data);
+              }
+              break;
+          }
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      ws.onclose = (event) => {
+        console.log('WebSocket disconnected:', event.code, event.reason);
+        setIsConnected(false);
+        setConnectionStatus('disconnected');
+        isConnectingRef.current = false;
+        onDisconnect?.();
+        wsRef.current = null;
+
+        // Attempt to reconnect if not closed intentionally and we still have a userId
+        if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts && userId) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
+          console.log(`Attempting to reconnect in ${delay}ms...`);
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectAttempts.current++;
+            connect();
+          }, delay);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setConnectionStatus('error');
+        isConnectingRef.current = false;
+      };
+
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
+      setConnectionStatus('error');
+      isConnectingRef.current = false;
+    }
+  }, [userId, onJobProgress, onJobComplete, onJobFailed, onConnect, onDisconnect]);
+
+  const disconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    if (wsRef.current) {
+      wsRef.current.close(1000, 'Intentional disconnect');
+      wsRef.current = null;
+    }
+    
+    setIsConnected(false);
+    setConnectionStatus('disconnected');
+    isConnectingRef.current = false;
+  }, []);
+
+  const reconnect = useCallback(() => {
+    disconnect();
+    setTimeout(() => {
+      reconnectAttempts.current = 0;
+      connect();
+    }, 1000);
+  }, [disconnect, connect]);
+
+  // Effect to manage connection lifecycle
+  useEffect(() => {
+    // Only connect if we have a userId and we're not already connected/connecting
+    if (userId && !wsRef.current && !isConnectingRef.current && connectionStatus !== 'connecting') {
+      connect();
+    }
+
+    return () => {
+      disconnect();
+    };
+  }, [userId]); // Only depend on userId to prevent unnecessary reconnections
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  return {
+    isConnected,
+    connectionStatus,
+    reconnect,
+    disconnect
+  };
+}; 

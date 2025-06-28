@@ -284,7 +284,7 @@ export class ApolloService {
           case 403:
             // Handle permission errors more gracefully
             console.warn('Apollo API key lacks People Search permissions, falling back to demo mode');
-            return MockDataService.getMockPeopleSearchResults(filters);
+            return await MockDataService.getMockPeopleSearchResults(filters);
           case 429:
             throw new Error('Rate limit exceeded - try again later');
           case 400:

@@ -9,8 +9,11 @@ import integrationsRouter from './routes/integrations';
 import authRouter from './routes/auth';
 import platformKeysRouter from './routes/platformKeys';
 import tablesRouter from './routes/tables';
+import bulkDownloadRouter from './routes/bulkDownload';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
+import { WebSocketService } from './services/websocketService';
+import './queues/bulkDownloadQueue'; // Initialize the queue
 
 dotenv.config();
 
@@ -58,6 +61,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/integrations', authMiddleware, integrationsRouter);
 app.use('/api/platform-keys', authMiddleware, platformKeysRouter);
 app.use('/api/tables', authMiddleware, tablesRouter);
+app.use('/api/bulk-download', authMiddleware, bulkDownloadRouter);
 
 // Test endpoint for JWT authentication status
 app.get('/api/auth/test', authMiddleware, (req: any, res) => {
@@ -134,8 +138,12 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
-}); 
+  console.log(`🔌 WebSocket server: ws://localhost:${PORT}/ws`);
+});
+
+// Initialize WebSocket server
+WebSocketService.initialize(server); 
