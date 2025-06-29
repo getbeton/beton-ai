@@ -89,4 +89,4 @@ services:
           path: ./mock-apollo/src
           target: /app/src
         - action: rebuild
-          path: ./mock-apollo/package.json 
+          path: ./mock-apollo/package.json

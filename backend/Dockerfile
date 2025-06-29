@@ -73,6 +73,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/config/apollo.json ./config/apollo.json
 COPY --from=builder /app/package*.json ./
+# Copy startup script and make it executable
 COPY start.sh ./
 
 # Clean up unnecessary files from node_modules

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Head from 'next/head';
 import { supabase } from '@/lib/supabase';
 import { apiClient, type UserTable, type TableColumn, type CreateColumnRequest } from '@/lib/api';
 import { 
@@ -62,6 +63,7 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation';
 
 const COLUMN_TYPES = [
   { value: 'text', label: 'Text', icon: '📝' },
@@ -619,30 +621,43 @@ export default function TableViewPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
-      <Toaster position="top-right" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50">
+      <Head>
+        <title>{table.name} - Table Details - Beton-AI</title>
+        <meta name="description" content={`View and manage data in ${table.name} table. ${table.description || 'Edit table structure, add rows, and manage data.'}`} />
+      </Head>
       
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push('/dashboard/tables')}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Tables
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <TableIcon className="h-8 w-8" />
-              {table.name}
-            </h1>
-            <p className="text-muted-foreground">
-              {table.description || 'No description'}
-            </p>
-          </div>
+      <Toaster position="top-right" />
+
+      {/* Breadcrumb Navigation */}
+      <div className="border-b bg-white/80 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4">
+          <BreadcrumbNavigation tableName={table.name} />
         </div>
+      </div>
+      
+      <div className="container mx-auto px-4 py-8 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/dashboard/tables')}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Tables
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-2">
+                <TableIcon className="h-8 w-8" />
+                {table.name}
+              </h1>
+              <p className="text-muted-foreground">
+                {table.description || 'No description'}
+              </p>
+            </div>
+          </div>
         
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handleExportCSV}>
@@ -1154,6 +1169,7 @@ export default function TableViewPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 } 

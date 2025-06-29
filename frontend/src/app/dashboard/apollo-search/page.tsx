@@ -736,7 +736,7 @@ export default function ApolloSearchPage() {
               <p className="text-muted-foreground mb-4">
                 You need to add an Apollo integration first to use People Search.
               </p>
-              <Button onClick={() => router.push('/dashboard')}>
+              <Button onClick={() => router.push('/dashboard/integrations')}>
                 Add Apollo Integration
               </Button>
             </div>

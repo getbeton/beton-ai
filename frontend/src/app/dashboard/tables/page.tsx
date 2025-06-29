@@ -51,6 +51,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import UserProfileDropdown from '@/components/navigation/UserProfileDropdown';
 
 const COLUMN_TYPES = [
   { value: 'text', label: 'Text', description: 'Free text input' },
@@ -300,200 +301,210 @@ export default function TablesPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50">
       <Toaster position="top-right" />
       
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push('/dashboard')}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Tables</h1>
-            <p className="text-muted-foreground">
-              Manage your data tables and imported search results
-            </p>
-          </div>
-        </div>
-        
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Table
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Table</DialogTitle>
-              <DialogDescription>
-                Set up a new table to store and manage your data.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <Tabs defaultValue="template" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="template">From Template</TabsTrigger>
-                <TabsTrigger value="custom">Custom Table</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="template" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {TABLE_TEMPLATES.map((template) => (
-                    <Card 
-                      key={template.name} 
-                      className={`cursor-pointer transition-all ${
-                        selectedTemplate === template.name ? 'ring-2 ring-primary' : 'hover:shadow-md'
-                      }`}
-                      onClick={() => handleTemplateSelect(template.name)}
-                    >
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          {getSourceTypeIcon(template.sourceType)}
-                          {template.name}
-                        </CardTitle>
-                        <CardDescription className="text-sm">
-                          {template.description}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-sm text-muted-foreground">
-                          {template.columns.length} columns included
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="custom" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="table-name">Table Name *</Label>
-                    <Input
-                      id="table-name"
-                      placeholder="Enter table name"
-                      value={createTableData.name}
-                      onChange={(e) => setCreateTableData(prev => ({ ...prev, name: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="source-type">Source Type</Label>
-                    <Select 
-                      value={createTableData.sourceType}
-                      onValueChange={(value) => setCreateTableData(prev => ({ ...prev, sourceType: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="manual">Manual Entry</SelectItem>
-                        <SelectItem value="apollo">Apollo Import</SelectItem>
-                        <SelectItem value="csv">CSV Import</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Optional description"
-                    value={createTableData.description}
-                    onChange={(e) => setCreateTableData(prev => ({ ...prev, description: e.target.value }))}
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            {/* Columns Configuration */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">Columns</Label>
-                <Button variant="outline" size="sm" onClick={addColumn}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Column
-                </Button>
+      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/dashboard')}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
+              <div>
+                <h1 className="text-xl font-bold">Tables</h1>
+                <p className="text-sm text-muted-foreground">
+                  Manage your data tables
+                </p>
               </div>
-              
-              {createTableData.columns && createTableData.columns.length > 0 ? (
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {createTableData.columns.map((column, index) => (
-                    <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
-                      <div className="flex-1">
-                        <Input
-                          placeholder="Column name"
-                          value={column.name}
-                          onChange={(e) => updateColumn(index, 'name', e.target.value)}
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Table
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Create New Table</DialogTitle>
+                    <DialogDescription>
+                      Set up a new table to store and manage your data.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <Tabs defaultValue="template" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="template">From Template</TabsTrigger>
+                      <TabsTrigger value="custom">Custom Table</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="template" className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {TABLE_TEMPLATES.map((template) => (
+                          <Card 
+                            key={template.name} 
+                            className={`cursor-pointer transition-all ${
+                              selectedTemplate === template.name ? 'ring-2 ring-primary' : 'hover:shadow-md'
+                            }`}
+                            onClick={() => handleTemplateSelect(template.name)}
+                          >
+                            <CardHeader className="pb-3">
+                              <CardTitle className="text-lg flex items-center gap-2">
+                                {getSourceTypeIcon(template.sourceType)}
+                                {template.name}
+                              </CardTitle>
+                              <CardDescription className="text-sm">
+                                {template.description}
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="text-sm text-muted-foreground">
+                                {template.columns.length} columns included
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="custom" className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="table-name">Table Name *</Label>
+                          <Input
+                            id="table-name"
+                            placeholder="Enter table name"
+                            value={createTableData.name}
+                            onChange={(e) => setCreateTableData(prev => ({ ...prev, name: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="source-type">Source Type</Label>
+                          <Select 
+                            value={createTableData.sourceType}
+                            onValueChange={(value) => setCreateTableData(prev => ({ ...prev, sourceType: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="manual">Manual Entry</SelectItem>
+                              <SelectItem value="apollo">Apollo Import</SelectItem>
+                              <SelectItem value="csv">CSV Import</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                          id="description"
+                          placeholder="Optional description"
+                          value={createTableData.description}
+                          onChange={(e) => setCreateTableData(prev => ({ ...prev, description: e.target.value }))}
                         />
                       </div>
-                      <div className="w-32">
-                        <Select 
-                          value={column.type}
-                          onValueChange={(value) => updateColumn(index, 'type', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {COLUMN_TYPES.map((type) => (
-                              <SelectItem key={type.value} value={type.value}>
-                                {type.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeColumn(index)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
+                    </TabsContent>
+                  </Tabs>
+
+                  {/* Columns Configuration */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-medium">Columns</Label>
+                      <Button variant="outline" size="sm" onClick={addColumn}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Column
                       </Button>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  No columns defined. Add columns to start building your table.
-                </div>
-              )}
-            </div>
+                    
+                    {createTableData.columns && createTableData.columns.length > 0 ? (
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {createTableData.columns.map((column, index) => (
+                          <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
+                            <div className="flex-1">
+                              <Input
+                                placeholder="Column name"
+                                value={column.name}
+                                onChange={(e) => updateColumn(index, 'name', e.target.value)}
+                              />
+                            </div>
+                            <div className="w-32">
+                              <Select 
+                                value={column.type}
+                                onValueChange={(value) => updateColumn(index, 'type', value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {COLUMN_TYPES.map((type) => (
+                                    <SelectItem key={type.value} value={type.value}>
+                                      {type.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeColumn(index)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No columns defined. Add columns to start building your table.
+                      </div>
+                    )}
+                  </div>
 
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsCreateDialogOpen(false)}
-                disabled={isCreating}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleCreateTable}
-                disabled={isCreating || !createTableData.name.trim()}
-              >
-                {isCreating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create Table'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+                  <DialogFooter>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsCreateDialogOpen(false)}
+                      disabled={isCreating}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleCreateTable}
+                      disabled={isCreating || !createTableData.name.trim()}
+                    >
+                      {isCreating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Creating...
+                        </>
+                      ) : (
+                        'Create Table'
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              
+              <UserProfileDropdown />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="container mx-auto px-4 py-8">
 
       {/* Filters and Search */}
       <div className="flex items-center gap-4 mb-6">
@@ -638,6 +649,7 @@ export default function TablesPage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 } 

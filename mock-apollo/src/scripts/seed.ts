@@ -21,6 +21,5 @@ async function main() {
     await prisma.$disconnect();
   }
 }
-
 // Run the seeding
 main(); 

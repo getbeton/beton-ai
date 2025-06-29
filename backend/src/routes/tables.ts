@@ -4,6 +4,11 @@ import {
   AuthenticatedRequest, 
   ApiResponse 
 } from '../types';
+import multer from 'multer';
+import csv from 'csv-parser';
+import fs from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -96,7 +101,11 @@ const formatCellValue = (value: any, columnType: ColumnType): string | null => {
     case COLUMN_TYPES.CURRENCY:
       return String(Number(value));
     case COLUMN_TYPES.DATE:
-      return new Date(value).toISOString();
+      const dateValue = new Date(value);
+      if (isNaN(dateValue.getTime())) {
+        return String(value); // Return original value if invalid date
+      }
+      return dateValue.toISOString();
     case COLUMN_TYPES.CHECKBOX:
       return Boolean(value).toString();
     default:
@@ -1303,6 +1312,299 @@ router.post('/:id/import/apollo', async (req: AuthenticatedRequest, res) => {
     res.status(500).json({ 
       success: false, 
       error: 'Failed to import Apollo data' 
+    });
+  }
+});
+
+// Configure multer for file uploads
+const upload = multer({
+  dest: 'uploads/', // temporary directory for uploaded files
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only CSV files are allowed'));
+    }
+  }
+});
+
+// CSV Upload endpoint
+router.post('/upload-csv', upload.single('file'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No CSV file provided' 
+      });
+    }
+
+    const { tableName } = req.body;
+    const filePath = req.file.path;
+    const originalName = req.file.originalname;
+
+    // Generate unique table name if not provided
+    const finalTableName = tableName || originalName.replace('.csv', '') || `Table_${new Date().toISOString().split('T')[0]}`;
+
+    // Parse CSV headers to determine column structure
+    const csvHeaders: string[] = [];
+    const sampleRows: Record<string, any>[] = [];
+    
+    try {
+      // Read first few rows to analyze structure
+      await new Promise<void>((resolve, reject) => {
+        let rowCount = 0;
+        const maxSampleRows = 5;
+        
+        fs.createReadStream(filePath)
+          .pipe(csv())
+          .on('headers', (headers: string[]) => {
+            csvHeaders.push(...headers);
+          })
+          .on('data', (row: Record<string, any>) => {
+            if (rowCount < maxSampleRows) {
+              sampleRows.push(row);
+              rowCount++;
+            } else {
+              // We have enough samples, stop reading
+              resolve();
+            }
+          })
+          .on('end', () => {
+            resolve();
+          })
+          .on('error', (error) => {
+            reject(error);
+          });
+      });
+
+      if (csvHeaders.length === 0) {
+        // Clean up uploaded file
+        fs.unlinkSync(filePath);
+        return res.status(400).json({ 
+          success: false, 
+          error: 'CSV file appears to be empty or invalid' 
+        });
+      }
+
+      // Determine column types based on sample data
+      const columns = csvHeaders.map((header, index) => {
+        // Clean header name
+        const cleanHeader = header.trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
+        
+        // Analyze sample data to determine type
+        let columnType: ColumnType = COLUMN_TYPES.TEXT;
+        
+        for (const row of sampleRows) {
+          const value = row[header];
+          if (value && value.toString().trim() !== '') {
+            // Check for email
+            if (/@/.test(value) && /\.[a-z]{2,}$/i.test(value)) {
+              columnType = COLUMN_TYPES.EMAIL;
+              break;
+            }
+            // Check for URL
+            if (/^https?:\/\//.test(value)) {
+              columnType = COLUMN_TYPES.URL;
+              break;
+            }
+            // Check for number
+            if (!isNaN(Number(value)) && !isNaN(parseFloat(value))) {
+              columnType = COLUMN_TYPES.NUMBER;
+            }
+            // Check for currency
+            if (/^\$[\d,]+\.?\d*$/.test(value)) {
+              columnType = COLUMN_TYPES.CURRENCY;
+            }
+            // Check for date (be more strict about date detection)
+            if (!isNaN(Date.parse(value)) && 
+                (value.includes('/') || value.includes('-') || value.match(/\d{4}/))) {
+              const parsedDate = new Date(value);
+              if (parsedDate.getFullYear() > 1900 && parsedDate.getFullYear() < 2100) {
+                columnType = COLUMN_TYPES.DATE;
+              }
+            }
+            // Check for boolean
+            if (['true', 'false', 'yes', 'no', '1', '0'].includes(value.toString().toLowerCase())) {
+              columnType = COLUMN_TYPES.CHECKBOX;
+            }
+          }
+        }
+
+        return {
+          name: cleanHeader || `Column_${index + 1}`,
+          type: columnType,
+          isRequired: false,
+          isEditable: true,
+          defaultValue: null,
+          settings: {}
+        };
+      });
+
+      // Check if table name already exists
+      const existingTable = await prisma.userTable.findUnique({
+        where: {
+          userId_name: {
+            userId,
+            name: finalTableName
+          }
+        }
+      });
+
+      if (existingTable) {
+        // Clean up uploaded file
+        fs.unlinkSync(filePath);
+        return res.status(409).json({ 
+          success: false, 
+          error: `Table with name "${finalTableName}" already exists` 
+        });
+      }
+
+      // Create the table
+      const table = await prisma.userTable.create({
+        data: {
+          userId,
+          name: finalTableName,
+          description: `Imported from ${originalName}`,
+          sourceType: 'csv_upload',
+          sourceId: req.file.filename,
+        },
+        include: {
+          columns: true
+        }
+      });
+
+      // Create columns
+      const createdColumns = await Promise.all(
+        columns.map((column, index) => 
+          prisma.tableColumn.create({
+            data: {
+              tableId: table.id,
+              name: column.name,
+              type: column.type,
+              isRequired: column.isRequired || false,
+              isEditable: column.isEditable !== false,
+              defaultValue: column.defaultValue,
+              order: index,
+              settings: column.settings || {}
+            }
+          })
+        )
+      );
+
+      // Generate job ID for processing
+      const jobId = uuidv4();
+
+      // Store job info in database or Redis for tracking
+      // For now, we'll process the CSV directly since we don't have a CSV queue set up
+      // In a production environment, you'd want to use a job queue for large files
+      
+      // Process CSV rows in batches
+      const rows: Record<string, any>[] = [];
+      
+      // Re-read the entire file to get all data
+      await new Promise<void>((resolve, reject) => {
+        fs.createReadStream(filePath)
+          .pipe(csv())
+          .on('data', (row: Record<string, any>) => {
+            rows.push(row);
+          })
+          .on('end', () => {
+            resolve();
+          })
+          .on('error', (error) => {
+            reject(error);
+          });
+      });
+
+      // Process rows in batches to avoid overwhelming the database
+      const batchSize = 100;
+      let processedCount = 0;
+      
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const batch = rows.slice(i, i + batchSize);
+        
+        const rowPromises = batch.map(async (csvRow, batchIndex) => {
+          const rowOrder = processedCount + batchIndex + 1;
+          
+          const tableRow = await prisma.tableRow.create({
+            data: {
+              tableId: table.id,
+              order: rowOrder
+            }
+          });
+
+          // Create cells for this row
+          const cellPromises = createdColumns.map(column => {
+            const originalHeader = csvHeaders.find(h => h.trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '_') === column.name);
+            const value = originalHeader ? csvRow[originalHeader] : null;
+            const formattedValue = value ? formatCellValue(value, column.type as ColumnType) : null;
+
+            return prisma.tableCell.create({
+              data: {
+                rowId: tableRow.id,
+                columnId: column.id,
+                value: formattedValue
+              }
+            });
+          });
+
+          await Promise.all(cellPromises);
+          return tableRow;
+        });
+
+        await Promise.all(rowPromises);
+        processedCount += batch.length;
+      }
+
+      // Clean up uploaded file
+      fs.unlinkSync(filePath);
+
+      const response: ApiResponse = {
+        success: true,
+        data: {
+          jobId,
+          tableId: table.id,
+          tableName: table.name,
+          rowsProcessed: processedCount,
+          columnsCreated: createdColumns.length
+        },
+        message: `CSV uploaded successfully. Created table "${table.name}" with ${processedCount} rows and ${createdColumns.length} columns.`
+      };
+
+      res.status(201).json(response);
+
+    } catch (csvError) {
+      // Clean up uploaded file in case of error
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      
+      console.error('Error processing CSV:', csvError);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid CSV format or processing error' 
+      });
+    }
+
+  } catch (error) {
+    console.error('Error uploading CSV:', error);
+    
+    // Clean up uploaded file in case of error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to upload CSV file' 
     });
   }
 });

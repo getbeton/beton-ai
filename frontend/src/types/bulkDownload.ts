@@ -50,10 +50,38 @@ export interface BulkDownloadEstimateRequest {
   integrationId: string;
 }
 
+// CSV Upload Progress Types
+export interface CSVUploadProgress {
+  jobId: string;
+  status: 'uploading' | 'parsing' | 'creating_table' | 'importing_data' | 'completed' | 'failed';
+  progress: {
+    stage: string;
+    percentage: number;
+    currentStep: string;
+    totalSteps?: number;
+    processedRows?: number;
+    totalRows?: number;
+  };
+  tableId?: string;
+  tableName?: string;
+  error?: string;
+}
+
+export interface CSVUploadJobInfo {
+  id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress: CSVUploadProgress;
+  fileName: string;
+  tableName: string;
+  createdAt: string;
+  completedAt?: string;
+  error?: string;
+}
+
 // WebSocket message types
 export interface WebSocketMessage {
-  type: 'auth_success' | 'job_progress' | 'job_complete' | 'job_failed';
-  data?: BulkDownloadJobInfo;
+  type: 'auth_success' | 'job_progress' | 'job_complete' | 'job_failed' | 'csv_upload_progress' | 'csv_upload_complete' | 'csv_upload_failed';
+  data?: BulkDownloadJobInfo | CSVUploadProgress;
   message?: string;
 }
 
