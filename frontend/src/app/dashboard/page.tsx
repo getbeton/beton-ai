@@ -23,6 +23,9 @@ import {
 import { Separator } from '@/components/ui/separator';
 import TableDashboard from '@/components/TableDashboard';
 import FileUploadDropzone from '@/components/upload/FileUploadDropzone';
+import { validateCSVFile, generateTableNameFromFile } from '@/lib/utils';
+import { apiClient } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -74,27 +77,35 @@ export default function Dashboard() {
     
     const file = files[0];
     
-    // Basic validation
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
-      alert('File size must be less than 50MB');
+    // Validate file using utility function
+    const validation = validateCSVFile(file);
+    if (!validation.valid) {
+      toast.error(validation.error!);
       return;
     }
-    
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      alert('Please upload a CSV file');
-      return;
+
+    // Generate table name from filename
+    const tableName = generateTableNameFromFile(file.name);
+
+    toast.loading('Uploading CSV file...', { id: 'csv-upload-global' });
+
+    try {
+      const response = await apiClient.tables.uploadCSV(file, tableName);
+      
+      if (response.data.success) {
+        toast.success(`CSV uploaded successfully! Creating table "${response.data.data.tableName}"`, { 
+          id: 'csv-upload-global' 
+        });
+        
+        // The table will appear in the dashboard when the user navigates back
+        // or when the TableDashboard component refreshes its data
+      }
+    } catch (error: any) {
+      console.error('Upload failed:', error);
+      toast.error(error.message || 'Failed to upload CSV file', { 
+        id: 'csv-upload-global' 
+      });
     }
-    
-    // TODO: Implement actual file upload to backend
-    // For now, just show success message
-    alert(`Ready to upload ${file.name} - Upload functionality coming in PRD 2.2!`);
-    
-    console.log('File ready for upload:', {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      lastModified: new Date(file.lastModified)
-    });
   };
 
   if (loading) {

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { EmptyState } from './EmptyState';
+import { validateCSVFile, generateTableNameFromFile } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,6 +58,16 @@ interface TableData {
   lastModified: Date;
   status: "processing" | "ready" | "error";
   description?: string;
+}
+
+// Upload progress interface for tracking file uploads
+interface UploadProgress {
+  fileName: string;
+  progress: number;
+  stage: "upload" | "parse" | "create" | "import";
+  status: "uploading" | "success" | "error";
+  jobId?: string;
+  error?: string;
 }
 
 // Utility functions
@@ -200,6 +211,7 @@ export default function TableDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -288,30 +300,79 @@ export default function TableDashboard() {
   // Handle file upload from EmptyState component
   const handleFileUpload = async (files: File[]) => {
     if (files.length === 0) return;
-    
+
     const file = files[0];
     
-    // Basic validation
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
-      toast.error('File size must be less than 50MB');
+    // Validate file using utility function
+    const validation = validateCSVFile(file);
+    if (!validation.valid) {
+      toast.error(validation.error!);
       return;
     }
-    
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      toast.error('Please upload a CSV file');
-      return;
+
+    // Generate table name from filename
+    const tableName = generateTableNameFromFile(file.name);
+
+    // Initialize upload progress
+    const progress: UploadProgress = {
+      fileName: file.name,
+      progress: 0,
+      stage: "upload",
+      status: "uploading",
+    };
+
+    setUploadProgress(progress);
+    toast.loading('Uploading CSV file...', { id: 'csv-upload' });
+
+    try {
+      // Start upload
+      setUploadProgress(prev => prev ? { ...prev, progress: 10, stage: "upload" } : null);
+      
+      const response = await apiClient.tables.uploadCSV(file, tableName);
+      
+      if (response.data.success) {
+        // Upload complete, backend processing begins
+        setUploadProgress(prev => prev ? { 
+          ...prev, 
+          progress: 30, 
+          stage: "parse",
+          jobId: response.data.data.jobId 
+        } : null);
+        
+        toast.success('CSV uploaded successfully!', { id: 'csv-upload' });
+        
+        // Progress tracking will be handled by WebSocket in commit 2.3
+        // For now, simulate completion
+        setTimeout(() => {
+          const newTable: TableData = {
+            id: response.data.data.tableId,
+            name: response.data.data.tableName,
+            rows: 0, // Will be updated by WebSocket
+            columns: 0, // Will be updated by WebSocket  
+            source: "CSV",
+            lastModified: new Date(),
+            status: "processing",
+            description: "Recently uploaded CSV file",
+          };
+
+          setTables((prev) => [newTable, ...prev]);
+          setUploadProgress(prev => prev ? { ...prev, progress: 100, status: "success" } : null);
+          
+          setTimeout(() => setUploadProgress(null), 1500);
+        }, 2000);
+      }
+    } catch (error: any) {
+      console.error('Upload failed:', error);
+      setUploadProgress(prev => prev ? { 
+        ...prev, 
+        status: "error",
+        error: error.message 
+      } : null);
+      
+      toast.error(error.message || 'Failed to upload CSV file', { id: 'csv-upload' });
+      
+      setTimeout(() => setUploadProgress(null), 3000);
     }
-    
-    // TODO: Implement actual file upload to backend
-    // For now, just show success message
-    toast.success(`Ready to upload ${file.name} - Upload functionality coming in PRD 2.2!`);
-    
-    console.log('File ready for upload:', {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      lastModified: new Date(file.lastModified)
-    });
   };
 
   // Filter tables based on search and filters

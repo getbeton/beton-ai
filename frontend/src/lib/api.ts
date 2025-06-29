@@ -331,6 +331,35 @@ export const apiClient = {
     // Import from Apollo
     importFromApollo: (tableId: string, searchResults: any): Promise<{ data: { success: boolean; data: TableRow[] } }> => 
       api.post(`/api/tables/${tableId}/import/apollo`, { searchResults }),
+
+    // CSV Upload
+    uploadCSV: async (file: File, tableName?: string): Promise<{ data: { success: boolean; data: { jobId: string; tableId: string; tableName: string } } }> => {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (tableName) formData.append('tableName', tableName);
+      
+      // Get auth token manually for FormData request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+      
+      const response = await fetch(`${baseURL}/api/tables/upload-csv`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          // Don't set Content-Type - let browser set it for FormData
+        },
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Upload failed: ${response.statusText}`);
+      }
+      
+      return response.json();
+    },
   },
 
   // Legacy API Keys endpoints (for backward compatibility if needed)
