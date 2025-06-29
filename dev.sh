@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Source the setup_env_files function from setup.sh
+source ./setup.sh
+
 echo "🚀 Beton-AI Development Environment"
 echo ""
 echo "Choose your development mode:"
@@ -13,6 +16,9 @@ echo ""
 read -p "Enter your choice (1-6): " choice
 echo ""
 read -p "Include Mock Apollo Service? (y/n): " mock_apollo
+
+# Check and setup environment files if needed
+setup_env_files
 
 # Build services list based on mock Apollo choice
 MOCK_APOLLO_SERVICES=""

@@ -3,6 +3,64 @@
 # Beton-AI Setup Script
 set -e
 
+# Function to prompt for environment variables
+setup_env_files() {
+    echo "📝 Setting up environment files..."
+    
+    # Backend .env setup
+    if [ ! -f "backend/.env" ]; then
+        echo "🔧 Configuring backend/.env"
+        cp backend/env.example backend/.env
+        
+        echo "Please enter the following Supabase details (press Enter to use defaults):"
+        read -p "Supabase URL: " supabase_url
+        read -p "Supabase Anon Key: " supabase_anon_key
+        read -p "Supabase Service Role Key: " supabase_service_role_key
+        read -p "JWT Secret (or press Enter for random): " jwt_secret
+        
+        # Generate random JWT secret if not provided
+        if [ -z "$jwt_secret" ]; then
+            jwt_secret=$(openssl rand -base64 32)
+        fi
+        
+        # Update backend/.env
+        if [ ! -z "$supabase_url" ]; then
+            sed -i.bak "s|SUPABASE_URL=.*|SUPABASE_URL=$supabase_url|" backend/.env
+        fi
+        if [ ! -z "$supabase_anon_key" ]; then
+            sed -i.bak "s|SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=$supabase_anon_key|" backend/.env
+        fi
+        if [ ! -z "$supabase_service_role_key" ]; then
+            sed -i.bak "s|SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=$supabase_service_role_key|" backend/.env
+        fi
+        sed -i.bak "s|JWT_SECRET=.*|JWT_SECRET=$jwt_secret|" backend/.env
+        rm -f backend/.env.bak
+    fi
+    
+    # Frontend .env.local setup
+    if [ ! -f "frontend/.env.local" ]; then
+        echo "🔧 Configuring frontend/.env.local"
+        cp frontend/env.local.example frontend/.env.local
+        
+        # Use the same Supabase values for frontend
+        if [ ! -z "$supabase_url" ]; then
+            sed -i.bak "s|NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=$supabase_url|" frontend/.env.local
+        fi
+        if [ ! -z "$supabase_anon_key" ]; then
+            sed -i.bak "s|NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$supabase_anon_key|" frontend/.env.local
+        fi
+        rm -f frontend/.env.local.bak
+    fi
+    
+    # Mock Apollo .env setup
+    if [ ! -f "mock-apollo/.env" ]; then
+        echo "🔧 Configuring mock-apollo/.env"
+        cp mock-apollo/env.example mock-apollo/.env
+    fi
+    
+    echo "✅ Environment files configured!"
+}
+
 echo "🚀 Starting Beton-AI Setup..."
 
 # Enable build optimizations
@@ -23,6 +81,9 @@ if [ "$1" = "--clean" ]; then
     docker system prune -f >/dev/null 2>&1 || true
     echo "✅ Cleanup completed!"
 fi
+
+# Setup environment files
+setup_env_files
 
 # Build services
 echo "🏗️  Building services..."

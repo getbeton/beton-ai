@@ -9,15 +9,14 @@ if [ ! -d "backend" ]; then
     exit 1
 fi
 
+# Source the setup_env_files function from setup.sh
+source ./setup.sh
+
 # Navigate to backend directory
 cd backend
 
-# Check if .env file exists, if not copy from example
-if [ ! -f ".env" ]; then
-    echo "📝 Creating .env file from example..."
-    cp env.example .env
-    echo "⚠️  Please update the .env file with your actual values"
-fi
+# Check and setup environment files if needed
+setup_env_files
 
 # Install dependencies if needed
 echo "📦 Checking and installing dependencies..."
