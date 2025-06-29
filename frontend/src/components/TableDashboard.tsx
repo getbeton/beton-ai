@@ -19,6 +19,7 @@ import {
   Plus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { EmptyState } from './EmptyState';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -78,7 +79,7 @@ const formatTimeAgo = (date: Date): string => {
   for (const interval of intervals) {
     const count = Math.floor(diffInSeconds / interval.seconds);
     if (count > 0) {
-      return \`\${count}\${interval.label.charAt(0)} ago\`;
+      return `${count}${interval.label.charAt(0)} ago`;
     }
   }
   
@@ -255,22 +256,22 @@ export default function TableDashboard() {
 
     switch (action) {
       case 'view':
-        router.push(\`/dashboard/tables/\${tableId}\`);
+        router.push(`/dashboard/tables/${tableId}`);
         break;
       case 'edit':
         // TODO: Implement edit functionality
-        toast.success(\`Edit \${table.name} - Coming soon!\`);
+        toast.success(`Edit ${table.name} - Coming soon!`);
         break;
       case 'export':
         // TODO: Implement export functionality
-        toast.success(\`Export \${table.name} - Coming soon!\`);
+        toast.success(`Export ${table.name} - Coming soon!`);
         break;
       case 'duplicate':
         // TODO: Implement duplicate functionality
-        toast.success(\`Duplicate \${table.name} - Coming soon!\`);
+        toast.success(`Duplicate ${table.name} - Coming soon!`);
         break;
       case 'delete':
-        if (window.confirm(\`Are you sure you want to delete "\${table.name}"? This action cannot be undone.\`)) {
+        if (window.confirm(`Are you sure you want to delete "${table.name}"? This action cannot be undone.`)) {
           try {
             await apiClient.tables.delete(tableId);
             toast.success('Table deleted successfully');
@@ -282,6 +283,35 @@ export default function TableDashboard() {
         }
         break;
     }
+  };
+
+  // Handle file upload from EmptyState component
+  const handleFileUpload = async (files: File[]) => {
+    if (files.length === 0) return;
+    
+    const file = files[0];
+    
+    // Basic validation
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+      toast.error('File size must be less than 50MB');
+      return;
+    }
+    
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      toast.error('Please upload a CSV file');
+      return;
+    }
+    
+    // TODO: Implement actual file upload to backend
+    // For now, just show success message
+    toast.success(`Ready to upload ${file.name} - Upload functionality coming in PRD 2.2!`);
+    
+    console.log('File ready for upload:', {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      lastModified: new Date(file.lastModified)
+    });
   };
 
   // Filter tables based on search and filters
@@ -306,6 +336,23 @@ export default function TableDashboard() {
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           <p className="text-muted-foreground">Loading tables...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show EmptyState when there are no tables at all
+  if (tables.length === 0) {
+    return (
+      <div className="min-h-screen bg-background p-4 sm:p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Tables</h1>
+            <p className="text-muted-foreground mt-1 sm:mt-2">
+              Manage your prospect data tables and CSV uploads
+            </p>
+          </div>
+          <EmptyState onFileUpload={handleFileUpload} />
         </div>
       </div>
     );
