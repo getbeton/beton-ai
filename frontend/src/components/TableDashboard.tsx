@@ -17,7 +17,17 @@ import { EmptyState } from './EmptyState';
 import { UploadProgressOverlay } from './upload/UploadProgressOverlay';
 import { FileUploadDropzone } from './upload/FileUploadDropzone';
 import { BulkActionToolbar } from './tables/BulkActionToolbar';
-import { validateCSVFile, generateTableNameFromFile, formatNumber, formatTimeAgo } from '@/lib/utils';
+import { 
+  validateCSVFile, 
+  generateTableNameFromFile, 
+  formatNumber, 
+  formatTimeAgo,
+  showErrorWithRetry,
+  showSuccessWithAction,
+  createLoadingToast,
+  updateLoadingToast,
+  withOptimisticUpdate
+} from '@/lib/utils';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { CSVUploadProgress } from '@/types/bulkDownload';
@@ -42,6 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // TableData interface as specified in PRD
 interface TableData {
@@ -312,7 +323,10 @@ export default function TableDashboard() {
       }
     } catch (error) {
       console.error('Error fetching tables:', error);
-      toast.error('Failed to load tables');
+      showErrorWithRetry(error, {
+        operation: 'load tables',
+        retry: fetchTables
+      });
     }
   };
 
@@ -384,18 +398,33 @@ export default function TableDashboard() {
       return;
     }
     
+    const toastId = createLoadingToast(`Deleting ${table.name}...`);
+    
     try {
-      toast.loading(`Deleting ${table.name}...`, { id: 'delete' });
+      await withOptimisticUpdate(
+        // Optimistic update: remove table immediately
+        () => setTables(prev => prev.filter(t => t.id !== tableId)),
+        // API call
+        () => apiClient.tables.delete(tableId),
+        // Revert update: add table back
+        () => setTables(prev => {
+          const newTables = [...prev, table];
+          newTables.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+          return newTables;
+        }),
+        // Error context
+        {
+          operation: 'delete table',
+          entityType: 'table',
+          entityName: table.name,
+          retry: () => handleDeleteTable(tableId)
+        }
+      );
       
-      const response = await apiClient.tables.delete(tableId);
-      
-      if (response.data.success) {
-        setTables(prev => prev.filter(t => t.id !== tableId));
-        toast.success(`${table.name} deleted successfully`, { id: 'delete' });
-      }
+      updateLoadingToast(toastId, 'success', `${table.name} deleted successfully`);
     } catch (error) {
       console.error('Delete failed:', error);
-      toast.error(`Failed to delete ${table.name}`, { id: 'delete' });
+      updateLoadingToast(toastId, 'error', `Failed to delete ${table.name}`);
     }
   }, [tables]);
 
@@ -460,26 +489,42 @@ export default function TableDashboard() {
     
     if (!confirm(confirmMessage)) return;
     
+    const bulkDeleteToastId = createLoadingToast(`Deleting ${selectedIds.length} tables...`);
+    
     try {
-      toast.loading(`Deleting ${selectedIds.length} tables...`, { id: 'bulk-delete' });
+      await withOptimisticUpdate(
+        // Optimistic update: remove selected tables immediately
+        () => setTables(prev => prev.filter(table => !selectedIds.includes(table.id))),
+        // API call: delete tables individually (bulk API not yet available)
+        async () => {
+          const deletePromises = selectedIds.map(id => apiClient.tables.delete(id));
+          return await Promise.all(deletePromises);
+        },
+        // Revert update: add tables back
+        () => setTables(prev => {
+          const restoredTables = [...prev, ...selectedTables];
+          restoredTables.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+          return restoredTables;
+        }),
+        // Error context
+        {
+          operation: 'delete tables',
+          entityType: 'tables',
+          retry: handleBulkDelete
+        }
+      );
       
-      // TODO: Replace with actual bulk delete API when available
-      // const response = await apiClient.tables.bulkDelete(selectedIds);
-      
-      // For now, delete tables individually using existing API
-      const deletePromises = selectedIds.map(id => apiClient.tables.delete(id));
-      await Promise.all(deletePromises);
-      
-      // Remove deleted tables from state
-      setTables(prev => prev.filter(table => !selectedIds.includes(table.id)));
-      
-      // Clear selection
+      // Clear selection on success
       bulkSelection.clearSelection();
       
-      toast.success(`Deleted ${selectedIds.length} tables successfully`, { id: 'bulk-delete' });
+      updateLoadingToast(
+        bulkDeleteToastId, 
+        'success', 
+        `Successfully deleted ${selectedIds.length} table${selectedIds.length > 1 ? 's' : ''}`
+      );
     } catch (error) {
       console.error('Bulk delete failed:', error);
-      toast.error(`Failed to delete some tables`, { id: 'bulk-delete' });
+      updateLoadingToast(bulkDeleteToastId, 'error', `Failed to delete some tables`);
     }
   }, [bulkSelection, tables]);
 
@@ -516,16 +561,31 @@ export default function TableDashboard() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [bulkSelection, handleBulkExport, handleBulkDelete]);
 
-  // Handle file upload from EmptyState component
+  // PRD 4.3: Enhanced file upload with comprehensive error handling
   const handleFileUpload = async (files: File[]) => {
     if (files.length === 0) return;
 
     const file = files[0];
     
-    // Validate file using utility function
+    // Enhanced file validation with user-friendly messages
     const validation = validateCSVFile(file);
     if (!validation.valid) {
-      toast.error(validation.error!);
+      showErrorWithRetry(new Error(validation.error!), {
+        operation: 'upload file',
+        retry: () => {
+          // Trigger file dialog for retry
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = '.csv';
+          input.onchange = (e) => {
+            const files = (e.target as HTMLInputElement).files;
+            if (files && files.length > 0) {
+              handleFileUpload(Array.from(files));
+            }
+          };
+          input.click();
+        }
+      });
       return;
     }
 
@@ -541,10 +601,10 @@ export default function TableDashboard() {
     };
 
     setUploadProgress(progress);
-    toast.loading('Uploading CSV file...', { id: 'csv-upload' });
+    const uploadToastId = createLoadingToast(`Uploading ${file.name}...`);
 
     try {
-      // Start upload
+      // Start upload with progress tracking
       setUploadProgress(prev => prev ? { ...prev, progress: 10, stage: "upload" } : null);
       
       const response = await apiClient.tables.uploadCSV(file, tableName);
@@ -558,7 +618,7 @@ export default function TableDashboard() {
           jobId: response.data.data.jobId 
         } : null);
         
-        toast.success('CSV uploaded successfully! Processing...', { id: 'csv-upload' });
+        updateLoadingToast(uploadToastId, 'success', 'CSV uploaded successfully! Processing...');
         
         // Real WebSocket progress tracking begins here
         // The WebSocket callbacks will handle further progress updates
@@ -571,20 +631,95 @@ export default function TableDashboard() {
         error: error.message 
       } : null);
       
-      toast.error(error.message || 'Failed to upload CSV file', { id: 'csv-upload' });
+      showErrorWithRetry(error, {
+        operation: 'upload CSV file',
+        entityType: 'file',
+        entityName: file.name,
+        retry: () => handleFileUpload([file])
+      });
       
       setTimeout(() => setUploadProgress(null), 3000);
     }
   };
 
+  // PRD 4.3: Enhanced loading states with skeleton
+  const TableSkeleton = () => (
+    <div className="space-y-6">
+      {/* Header Skeleton */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <Skeleton className="h-8 w-32 mb-2" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <Skeleton className="h-10 w-32" />
+      </div>
+
+      {/* Compact Drop Zone Skeleton */}
+      <Card className="border-2 border-dashed border-gray-300">
+        <CardContent className="p-6">
+          <div className="text-center space-y-3">
+            <Skeleton className="h-12 w-12 rounded-full mx-auto" />
+            <Skeleton className="h-6 w-40 mx-auto" />
+            <Skeleton className="h-4 w-64 mx-auto" />
+            <Skeleton className="h-8 w-24 mx-auto" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Filter Controls Skeleton */}
+      <div className="flex items-center justify-between mb-4">
+        <Skeleton className="h-6 w-48" />
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Skeleton className="h-10 flex-1" />
+        <Skeleton className="h-10 w-full md:w-[180px]" />
+        <Skeleton className="h-10 w-full md:w-[180px]" />
+        <Skeleton className="h-10 w-full sm:w-auto" />
+      </div>
+
+      {/* Table Skeleton */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead><Skeleton className="h-4 w-16" /></TableHead>
+                <TableHead className="hidden md:table-cell text-right"><Skeleton className="h-4 w-12" /></TableHead>
+                <TableHead className="hidden lg:table-cell text-right"><Skeleton className="h-4 w-16" /></TableHead>
+                <TableHead className="hidden lg:table-cell"><Skeleton className="h-4 w-16" /></TableHead>
+                <TableHead className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableHead>
+                <TableHead className="w-[50px]"><Skeleton className="h-4 w-16" /></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell className="hidden md:table-cell text-right"><Skeleton className="h-4 w-12" /></TableCell>
+                  <TableCell className="hidden lg:table-cell text-right"><Skeleton className="h-4 w-8" /></TableCell>
+                  <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-8 rounded" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Stats Skeleton */}
+      <Skeleton className="h-4 w-48" />
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-gray-50">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground">Loading tables...</p>
+      <FileUploadDropzone onFileUpload={handleFileUpload}>
+        <div className="space-y-6">
+          <TableSkeleton />
         </div>
-      </div>
+      </FileUploadDropzone>
     );
   }
 
