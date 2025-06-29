@@ -9,12 +9,8 @@ WORKDIR /app
 FROM base AS deps
 # Copy package files first for better caching
 COPY package*.json ./
-# Install dependencies with advanced cache mounts
-RUN --mount=type=cache,target=/root/.npm \
-    --mount=type=cache,target=/root/.cache \
-    # Install production dependencies first for faster builds
-    npm ci --only=production --no-optional && \
-    # Install dev dependencies for building
+# Install dependencies (Railway-compatible)
+RUN npm ci --only=production --no-optional && \
     npm ci --only=dev
 
 # Build stage with optimizations
@@ -37,15 +33,10 @@ ENV NODE_ENV=production
 ENV NEXT_SHARP_PATH=/app/node_modules/sharp
 ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-# Build optimizations with multiple cache mounts
-RUN --mount=type=cache,target=/app/.next/cache \
-    --mount=type=cache,target=/root/.npm \
-    --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/tmp \
-    set -a && \
+# Build optimizations (Railway-compatible)
+RUN set -a && \
     . ./.env.local && \
     set +a && \
-    # Enable build cache and parallel builds
     NEXT_TELEMETRY_DISABLED=1 \
     NODE_OPTIONS="--max-old-space-size=2048" \
     npm run build

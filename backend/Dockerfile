@@ -15,11 +15,8 @@ WORKDIR /app
 FROM base AS deps
 # Copy package files first for better caching
 COPY package*.json ./
-# Install dependencies with advanced cache mounts and parallel installation
-RUN --mount=type=cache,target=/root/.npm \
-    --mount=type=cache,target=/root/.cache \
-    # Set npm to run in parallel for faster installs
-    npm config set maxsockets 50 && \
+# Install dependencies (Railway-compatible - no cache mounts)
+RUN npm config set maxsockets 50 && \
     npm config set fetch-timeout 60000 && \
     # Install production dependencies first for faster builds
     NODE_ENV=production npm ci --prefer-offline --no-audit --no-optional && \
@@ -45,17 +42,12 @@ ENV PRISMA_GENERATE_DATAPROXY=true
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 ENV TS_NODE_TRANSPILE_ONLY=true
 
-# Generate Prisma client with advanced cache and parallel operations
-RUN --mount=type=cache,target=/root/.cache/prisma \
-    --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/app/node_modules/.cache \
-    NODE_OPTIONS="--max-old-space-size=4096" \
+# Generate Prisma client (Railway-compatible)
+RUN NODE_OPTIONS="--max-old-space-size=4096" \
     npx prisma generate
 
-# Build TypeScript with optimizations and parallel transpilation
-RUN --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/app/node_modules/.cache \
-    NODE_OPTIONS="--max-old-space-size=4096" \
+# Build TypeScript (Railway-compatible)
+RUN NODE_OPTIONS="--max-old-space-size=4096" \
     npm run build
 
 # Production stage

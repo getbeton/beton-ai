@@ -9,9 +9,8 @@ WORKDIR /app
 FROM base AS deps
 # Copy package files first for better caching
 COPY package*.json ./
-# Install dependencies with cache mount for better performance
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci && \
+# Install dependencies (Railway-compatible)
+RUN npm ci && \
     # Keep a copy of production dependencies
     npm ci --omit=dev && \
     cp -R node_modules /tmp/node_modules && \
