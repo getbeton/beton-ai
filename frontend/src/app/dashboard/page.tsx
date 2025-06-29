@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Head from 'next/head';
 import { supabase } from '@/lib/supabase';
 import { 
   Zap, 
@@ -23,6 +24,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import TableDashboard from '@/components/TableDashboard';
 import FileUploadDropzone from '@/components/upload/FileUploadDropzone';
+import MainNavigation from '@/components/navigation/MainNavigation';
+import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation';
 import { validateCSVFile, generateTableNameFromFile } from '@/lib/utils';
 import { apiClient } from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -121,6 +124,11 @@ export default function Dashboard() {
 
   return (
     <FileUploadDropzone onFileUpload={handleFileUpload}>
+      <Head>
+        <title>Tables - Beton-AI Dashboard</title>
+        <meta name="description" content="Manage your data tables and CSV uploads with Beton-AI's automation platform." />
+      </Head>
+      
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50">
         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
         
@@ -138,7 +146,7 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <Separator orientation="vertical" className="h-6" />
-                <span className="text-sm text-muted-foreground">Dashboard</span>
+                <MainNavigation />
               </div>
               
               <DropdownMenu>
@@ -168,8 +176,13 @@ export default function Dashboard() {
           </div>
         </header>
 
+        {/* Breadcrumb Navigation */}
+        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-4">
+          <BreadcrumbNavigation />
+        </div>
+
         {/* Main Content */}
-        <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
+        <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 pb-8">
           <TableDashboard />
         </main>
       </div>
