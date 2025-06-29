@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import TableDashboard from '@/components/TableDashboard';
+import FileUploadDropzone from '@/components/upload/FileUploadDropzone';
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -67,6 +68,35 @@ export default function Dashboard() {
     }
   };
 
+  // Handle file upload from global dropzone
+  const handleFileUpload = async (files: File[]) => {
+    if (files.length === 0) return;
+    
+    const file = files[0];
+    
+    // Basic validation
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+      alert('File size must be less than 50MB');
+      return;
+    }
+    
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      alert('Please upload a CSV file');
+      return;
+    }
+    
+    // TODO: Implement actual file upload to backend
+    // For now, just show success message
+    alert(`Ready to upload ${file.name} - Upload functionality coming in PRD 2.2!`);
+    
+    console.log('File ready for upload:', {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      lastModified: new Date(file.lastModified)
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-gray-50">
@@ -79,57 +109,59 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50">
-      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-      
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-                  <Zap className="h-4 w-4 text-white" />
-                </div>
-                <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  Beton-AI
-                </span>
-              </div>
-              <Separator orientation="vertical" className="h-6" />
-              <span className="text-sm text-muted-foreground">Dashboard</span>
-            </div>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email} />
-                    <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user?.user_metadata?.full_name || 'User'}</p>
-                    <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+    <FileUploadDropzone onFileUpload={handleFileUpload}>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50">
+        <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+        
+        {/* Header */}
+        <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+            <div className="flex h-16 items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+                    <Zap className="h-4 w-4 text-white" />
                   </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Beton-AI
+                  </span>
+                </div>
+                <Separator orientation="vertical" className="h-6" />
+                <span className="text-sm text-muted-foreground">Dashboard</span>
+              </div>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user?.user_metadata?.avatar_url} alt={user?.email} />
+                      <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user?.user_metadata?.full_name || 'User'}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
-        <TableDashboard />
-      </main>
-    </div>
+        {/* Main Content */}
+        <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
+          <TableDashboard />
+        </main>
+      </div>
+    </FileUploadDropzone>
   );
 } 
