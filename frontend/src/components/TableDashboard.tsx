@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { apiClient, type UserTable } from '@/lib/api';
 import { 
   Search,
   Upload,
   Plus,
-  CheckSquare
+  CheckSquare,
+  X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { EmptyState } from './EmptyState';
@@ -62,43 +63,134 @@ interface UploadProgress {
   error?: string;
 }
 
-
-
-
-
 export default function TableDashboard() {
   const [user, setUser] = useState<any>(null);
   const [tables, setTables] = useState<TableData[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // PRD 3.3: Enhanced Search and Filtering Implementation
+  // Features: debounced search, multi-field search, smart filter suggestions, 
+  // clear indicators, URL persistence, and improved empty states
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showEmptyMessage, setShowEmptyMessage] = useState(false);
+  
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Filter tables based on search and filters
+  // Debounced search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Enhanced search function for multi-field and multi-word search
+  const getSearchableText = useCallback((table: TableData): string => {
+    return [
+      table.name,
+      table.description || '',
+      table.source,
+      table.status,
+      table.rows.toString(),
+      table.columns.toString()
+    ].join(' ').toLowerCase();
+  }, []);
+
+  // Enhanced filter logic with advanced search capabilities
   const filteredTables = tables.filter(table => {
-    // Search filter
-    const matchesSearch = !searchQuery || 
-      table.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (table.description && table.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    // Advanced search with multi-word support
+    const searchableText = getSearchableText(table);
+    const searchTerms = debouncedSearchQuery.toLowerCase().split(' ').filter(term => term.length > 0);
     
-    // Source filter
+    const matchesSearch = searchTerms.length === 0 || 
+      searchTerms.every(term => searchableText.includes(term));
+    
+    // Source and status filtering
     const matchesSource = sourceFilter === 'all' || table.source === sourceFilter;
-    
-    // Status filter
     const matchesStatus = statusFilter === 'all' || table.status === statusFilter;
-    
+
     return matchesSearch && matchesSource && matchesStatus;
   });
 
-  // Bulk selection hook
+  // Filter state management
+  const hasActiveFilters = sourceFilter !== 'all' || statusFilter !== 'all' || searchQuery.length > 0;
+
+  const clearAllFilters = useCallback(() => {
+    setSearchQuery('');
+    setSourceFilter('all');
+    setStatusFilter('all');
+  }, []);
+
+  // Smart filter suggestions with counts
+  const getFilterSuggestions = useCallback(() => {
+    const sources = Array.from(new Set(tables.map(table => table.source)));
+    const statuses = Array.from(new Set(tables.map(table => table.status)));
+    
+    return {
+      sources: sources.map(source => ({
+        value: source,
+        label: source,
+        count: tables.filter(table => table.source === source).length
+      })),
+      statuses: statuses.map(status => ({
+        value: status,
+        label: status.charAt(0).toUpperCase() + status.slice(1),
+        count: tables.filter(table => table.status === status).length
+      }))
+    };
+  }, [tables]);
+
+  // Empty state handling with delay to prevent flashing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowEmptyMessage(filteredTables.length === 0 && hasActiveFilters);
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [filteredTables.length, hasActiveFilters]);
+
+  // URL state persistence - Load filters from URL on mount
+  useEffect(() => {
+    const urlSearch = searchParams.get('search') || '';
+    const urlSource = searchParams.get('source') || 'all';
+    const urlStatus = searchParams.get('status') || 'all';
+    
+    setSearchQuery(urlSearch);
+    setSourceFilter(urlSource);
+    setStatusFilter(urlStatus);
+  }, [searchParams]);
+
+  // URL state persistence - Update URL when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set('search', searchQuery);
+    if (sourceFilter !== 'all') params.set('source', sourceFilter);
+    if (statusFilter !== 'all') params.set('status', statusFilter);
+    
+    const newUrl = params.toString() ? `?${params.toString()}` : '';
+    router.replace(`/dashboard/tables${newUrl}`, { scroll: false });
+  }, [searchQuery, sourceFilter, statusFilter, router]);
+
+  // Bulk selection hook - updated to use filtered tables
   const bulkSelection = useBulkSelection({
     allItemIds: filteredTables.map(table => table.id),
     onSelectionChange: useCallback((selectedIds: Set<string>) => {
       // Optional: Handle selection changes
     }, [])
   });
+
+  // Clear bulk selection when filters change to maintain consistency
+  useEffect(() => {
+    if (bulkSelection.selectedCount > 0) {
+      bulkSelection.clearSelection();
+    }
+  }, [debouncedSearchQuery, sourceFilter, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // WebSocket progress tracking for CSV uploads
   const handleCSVUploadProgress = (progress: CSVUploadProgress) => {
@@ -527,37 +619,66 @@ export default function TableDashboard() {
         </Button>
       </div>
 
-      {/* Search and Filters */}
+      {/* Results count and filter controls */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-4">
+          <h2 className="text-lg font-semibold">
+            {filteredTables.length} {filteredTables.length === 1 ? 'table' : 'tables'}
+            {hasActiveFilters && ` found`}
+          </h2>
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground">
+              Clear filters
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Enhanced Search and Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="Search tables..."
+            placeholder="Search tables by name, description..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 pr-10 w-full"
           />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-gray-100"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         <Select value={sourceFilter} onValueChange={setSourceFilter}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue placeholder="All Sources" />
+          <SelectTrigger className="w-full md:w-[180px]">
+            <SelectValue placeholder="Filter by Source" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Sources</SelectItem>
-            <SelectItem value="CSV">CSV</SelectItem>
-            <SelectItem value="Apollo">Apollo</SelectItem>
-            <SelectItem value="Manual">Manual</SelectItem>
+            <SelectItem value="all">All Sources ({tables.length})</SelectItem>
+            {getFilterSuggestions().sources.map(source => (
+              <SelectItem key={source.value} value={source.value}>
+                {source.label} ({source.count})
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue placeholder="All Statuses" />
+          <SelectTrigger className="w-full md:w-[180px]">
+            <SelectValue placeholder="Filter by Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="ready">Ready</SelectItem>
-            <SelectItem value="processing">Processing</SelectItem>
-            <SelectItem value="error">Error</SelectItem>
+            <SelectItem value="all">All Statuses ({tables.length})</SelectItem>
+            {getFilterSuggestions().statuses.map(status => (
+              <SelectItem key={status.value} value={status.value}>
+                {status.label} ({status.count})
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Button
@@ -609,12 +730,23 @@ export default function TableDashboard() {
                   <TableCell colSpan={6} className="text-center py-8">
                     <div className="flex flex-col items-center space-y-3">
                       <div className="text-muted-foreground">
-                        {searchQuery || sourceFilter !== 'all' || statusFilter !== 'all' 
+                        {hasActiveFilters 
                           ? 'No tables match your filters'
                           : 'No tables found'
                         }
                       </div>
-                      {!searchQuery && sourceFilter === 'all' && statusFilter === 'all' && (
+                      {hasActiveFilters ? (
+                        <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                          <Button variant="outline" size="sm" onClick={clearAllFilters}>
+                            Clear all filters
+                          </Button>
+                          <span className="text-sm text-muted-foreground">or</span>
+                          <Button variant="outline" size="sm">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create new table
+                          </Button>
+                        </div>
+                      ) : (
                         <Button variant="outline" size="sm">
                           <Plus className="mr-2 h-4 w-4" />
                           Create your first table
@@ -640,10 +772,28 @@ export default function TableDashboard() {
         </CardContent>
       </Card>
 
-      {/* Summary Stats */}
-      {filteredTables.length > 0 && (
-        <div className="text-sm text-muted-foreground">
-          Showing {filteredTables.length} of {tables.length} tables
+      {/* Enhanced Summary Stats */}
+      {tables.length > 0 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div>
+            {hasActiveFilters ? (
+              <span>
+                Showing {filteredTables.length} of {tables.length} tables
+                {filteredTables.length !== tables.length && (
+                  <span className="ml-2">
+                    ({tables.length - filteredTables.length} hidden by filters)
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span>Showing all {tables.length} tables</span>
+            )}
+          </div>
+          {bulkSelection.selectedCount > 0 && (
+            <div className="text-blue-600">
+              {bulkSelection.selectedCount} table{bulkSelection.selectedCount !== 1 ? 's' : ''} selected
+            </div>
+          )}
         </div>
       )}
 
