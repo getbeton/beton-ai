@@ -7,19 +7,23 @@ import { apiClient, type UserTable } from '@/lib/api';
 import { 
   Search,
   Upload,
-  Plus
+  Plus,
+  CheckSquare
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { EmptyState } from './EmptyState';
 import { UploadProgressOverlay } from './upload/UploadProgressOverlay';
+import { BulkActionToolbar } from './tables/BulkActionToolbar';
 import { validateCSVFile, generateTableNameFromFile, formatNumber, formatTimeAgo } from '@/lib/utils';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { CSVUploadProgress } from '@/types/bulkDownload';
 import { TableRowComponent } from './tables/TableRowComponent';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Select, 
   SelectContent, 
@@ -71,6 +75,30 @@ export default function TableDashboard() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const router = useRouter();
+
+  // Filter tables based on search and filters
+  const filteredTables = tables.filter(table => {
+    // Search filter
+    const matchesSearch = !searchQuery || 
+      table.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (table.description && table.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Source filter
+    const matchesSource = sourceFilter === 'all' || table.source === sourceFilter;
+    
+    // Status filter
+    const matchesStatus = statusFilter === 'all' || table.status === statusFilter;
+    
+    return matchesSearch && matchesSource && matchesStatus;
+  });
+
+  // Bulk selection hook
+  const bulkSelection = useBulkSelection({
+    allItemIds: filteredTables.map(table => table.id),
+    onSelectionChange: useCallback((selectedIds: Set<string>) => {
+      // Optional: Handle selection changes
+    }, [])
+  });
 
   // WebSocket progress tracking for CSV uploads
   const handleCSVUploadProgress = (progress: CSVUploadProgress) => {
@@ -299,6 +327,101 @@ export default function TableDashboard() {
     }
   }, [handleViewTable, handleEditTable, handleExportTable, handleDuplicateTable, handleDeleteTable]);
 
+  // Bulk action handlers
+  const handleBulkExport = useCallback(async () => {
+    const selectedIds = bulkSelection.selectedIdsArray;
+    const selectedTables = tables.filter(table => selectedIds.includes(table.id));
+    
+    if (selectedIds.length === 0) return;
+    
+    try {
+      toast.loading(`Preparing export for ${selectedIds.length} tables...`, { id: 'bulk-export' });
+      
+      // TODO: Replace with actual bulk export API when available
+      // const response = await apiClient.tables.bulkExport(selectedIds);
+      
+      // Simulate export process for now
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // In the future, this would trigger a ZIP download
+      const tableNames = selectedTables.map(t => t.name).join(', ');
+      toast.success(`Exported ${selectedIds.length} tables: ${tableNames}`, { id: 'bulk-export' });
+      
+      // Clear selection after successful export
+      bulkSelection.clearSelection();
+    } catch (error) {
+      console.error('Bulk export failed:', error);
+      toast.error(`Failed to export ${selectedIds.length} tables`, { id: 'bulk-export' });
+    }
+  }, [bulkSelection, tables]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const selectedIds = bulkSelection.selectedIdsArray;
+    const selectedTables = tables.filter(table => selectedIds.includes(table.id));
+    
+    if (selectedIds.length === 0) return;
+    
+    const tableNames = selectedTables.map(table => table.name);
+    const confirmMessage = `Are you sure you want to delete ${selectedIds.length} table${selectedIds.length > 1 ? 's' : ''}?\n\n${tableNames.join('\n')}\n\nThis action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) return;
+    
+    try {
+      toast.loading(`Deleting ${selectedIds.length} tables...`, { id: 'bulk-delete' });
+      
+      // TODO: Replace with actual bulk delete API when available
+      // const response = await apiClient.tables.bulkDelete(selectedIds);
+      
+      // For now, delete tables individually using existing API
+      const deletePromises = selectedIds.map(id => apiClient.tables.delete(id));
+      await Promise.all(deletePromises);
+      
+      // Remove deleted tables from state
+      setTables(prev => prev.filter(table => !selectedIds.includes(table.id)));
+      
+      // Clear selection
+      bulkSelection.clearSelection();
+      
+      toast.success(`Deleted ${selectedIds.length} tables successfully`, { id: 'bulk-delete' });
+    } catch (error) {
+      console.error('Bulk delete failed:', error);
+      toast.error(`Failed to delete some tables`, { id: 'bulk-delete' });
+    }
+  }, [bulkSelection, tables]);
+
+  // Keyboard shortcuts for bulk actions
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle shortcuts when bulk selection is active and has selections
+      if (!bulkSelection.showBulkActions || bulkSelection.selectedCount === 0) return;
+      
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key.toLowerCase()) {
+          case 'a':
+            e.preventDefault();
+            bulkSelection.selectAll();
+            break;
+          case 'e':
+            e.preventDefault();
+            handleBulkExport();
+            break;
+          case 'backspace':
+          case 'delete':
+            e.preventDefault();
+            handleBulkDelete();
+            break;
+        }
+      }
+      
+      if (e.key === 'Escape') {
+        bulkSelection.clearSelection();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [bulkSelection, handleBulkExport, handleBulkDelete]);
+
   // Handle file upload from EmptyState component
   const handleFileUpload = async (files: File[]) => {
     if (files.length === 0) return;
@@ -359,22 +482,6 @@ export default function TableDashboard() {
       setTimeout(() => setUploadProgress(null), 3000);
     }
   };
-
-  // Filter tables based on search and filters
-  const filteredTables = tables.filter(table => {
-    // Search filter
-    const matchesSearch = !searchQuery || 
-      table.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (table.description && table.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    // Source filter
-    const matchesSource = sourceFilter === 'all' || table.source === sourceFilter;
-    
-    // Status filter
-    const matchesStatus = statusFilter === 'all' || table.status === statusFilter;
-    
-    return matchesSearch && matchesSource && matchesStatus;
-  });
 
   if (loading) {
     return (
@@ -453,7 +560,34 @@ export default function TableDashboard() {
             <SelectItem value="error">Error</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          variant="outline"
+          onClick={bulkSelection.toggleBulkMode}
+          className={`w-full sm:w-auto ${bulkSelection.isSelecting ? "bg-blue-50 text-blue-700 border-blue-300" : ""}`}
+        >
+          <CheckSquare className="mr-2 h-4 w-4" />
+          {bulkSelection.isSelecting ? 'Cancel Selection' : 'Select Tables'}
+        </Button>
       </div>
+
+      {/* Select All Section - Only show when in bulk selection mode */}
+      {bulkSelection.isSelecting && filteredTables.length > 0 && (
+        <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <Checkbox
+            checked={bulkSelection.isAllSelected}
+            data-indeterminate={bulkSelection.isIndeterminate}
+            onCheckedChange={bulkSelection.selectAll}
+          />
+          <span className="text-sm font-medium text-blue-900">
+            Select all ({filteredTables.length} tables)
+          </span>
+          {bulkSelection.selectedCount > 0 && (
+            <span className="text-sm text-blue-700 ml-auto">
+              {bulkSelection.selectedCount} selected
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Tables List */}
       <Card>
@@ -495,8 +629,9 @@ export default function TableDashboard() {
                     key={table.id} 
                     table={table} 
                     onAction={handleTableAction}
-                    isSelected={false}
-                    showBulkActions={false}
+                    isSelected={bulkSelection.isSelected(table.id)}
+                    onSelect={bulkSelection.isSelecting ? bulkSelection.toggleItem : undefined}
+                    showBulkActions={bulkSelection.isSelecting}
                   />
                 ))
               )}
@@ -523,6 +658,15 @@ export default function TableDashboard() {
           }}
         />
       )}
+
+      {/* Bulk Action Toolbar */}
+      <BulkActionToolbar
+        selectedCount={bulkSelection.selectedCount}
+        onClearSelection={bulkSelection.clearSelection}
+        onBulkDelete={handleBulkDelete}
+        onBulkExport={handleBulkExport}
+        visible={bulkSelection.showBulkActions}
+      />
     </div>
   );
 }
