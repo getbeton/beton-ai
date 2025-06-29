@@ -7,15 +7,6 @@ yarn-error.log*
 # Build outputs
 dist/
 build/
-.next/
-out/
-
-# Environment files
-# .env
-# .env.local
-# .env.development.local
-# .env.test.local
-# .env.production.local
 
 # IDE and editor files
 .vscode/
@@ -58,12 +49,22 @@ coverage/
 Dockerfile*
 .dockerignore
 
-# Development files
-nodemon.json
+# Config files (except apollo.json)
+*.config.js
+*.config.ts
+
+# Keep apollo.json
+!config/apollo.json
+
+# Environment example files
 .env.example
 
 # Test files
 test/
 tests/
 **/*.test.*
-**/*.spec.* 
+**/*.spec.*
+
+# Backup files
+**/*.bak
+**/*.bak[0-9]* 

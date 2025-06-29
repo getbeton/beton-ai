@@ -19,11 +19,9 @@ if [ ! -f ".env" ]; then
     echo "⚠️  Please update the .env file with your actual values"
 fi
 
-# Check if node_modules exists
-if [ ! -d "node_modules" ]; then
-    echo "📦 Installing backend dependencies..."
-    npm install
-fi
+# Install dependencies if needed
+echo "📦 Checking and installing dependencies..."
+npm install
 
 # Generate Prisma client
 echo "🔧 Generating Prisma client..."
@@ -35,4 +33,5 @@ echo "💡 Press 'rs' to manually restart the server"
 echo "🛑 Press Ctrl+C to stop"
 echo ""
 
-npm run dev 
+# Use npx to ensure we're using the local installation
+npx nodemon --exec npx ts-node src/index.ts 

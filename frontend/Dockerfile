@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 
 # Base stage with common dependencies
-FROM node:18-alpine AS base
+FROM node:18.19-alpine3.19 AS base
 RUN apk add --no-cache libc6-compat curl dumb-init
 WORKDIR /app
 
@@ -9,19 +9,26 @@ WORKDIR /app
 FROM base AS deps
 # Copy package files first for better caching
 COPY package*.json ./
-# Install dependencies with advanced cache mounts for ultra-fast builds
+# Install dependencies with advanced cache mounts
 RUN --mount=type=cache,target=/root/.npm \
     --mount=type=cache,target=/root/.cache \
     # Install production dependencies first for faster builds
-    npm ci --only=production && \
+    npm ci --only=production --no-optional && \
     # Install dev dependencies for building
     npm ci --only=dev
 
-# Build stage with ultra-fast optimizations
+# Build stage with optimizations
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
+# Copy config files needed for build
+COPY next.config.js ./
+COPY postcss.config.js ./
+COPY tailwind.config.js ./
+COPY tsconfig*.json ./
+COPY components.json ./
 # Copy environment file first
 COPY .env.local ./
+# Then copy the rest of the source
 COPY . .
 
 # Set environment variables for build optimization
@@ -30,7 +37,7 @@ ENV NODE_ENV=production
 ENV NEXT_SHARP_PATH=/app/node_modules/sharp
 ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-# Ultra-fast build optimizations with multiple cache mounts
+# Build optimizations with multiple cache mounts
 RUN --mount=type=cache,target=/app/.next/cache \
     --mount=type=cache,target=/root/.npm \
     --mount=type=cache,target=/root/.cache \
@@ -38,7 +45,7 @@ RUN --mount=type=cache,target=/app/.next/cache \
     set -a && \
     . ./.env.local && \
     set +a && \
-    # Enable build cache and parallel builds with optimizations
+    # Enable build cache and parallel builds
     NEXT_TELEMETRY_DISABLED=1 \
     NODE_OPTIONS="--max-old-space-size=2048" \
     npm run build
@@ -64,6 +71,14 @@ RUN mkdir .next && chown nextjs:nodejs .next
 # Automatically leverage output traces to reduce image size
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/.env.local ./
+
+# Clean up unnecessary files
+RUN find . -type f -name "*.map" -delete && \
+    find . -type d -name "doc" -exec rm -rf {} + 2>/dev/null || true && \
+    find . -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true && \
+    find . -type d -name "example" -exec rm -rf {} + 2>/dev/null || true && \
+    find . -type d -name "examples" -exec rm -rf {} + 2>/dev/null || true
 
 USER nextjs
 

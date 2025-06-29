@@ -1,71 +1,95 @@
 # syntax=docker/dockerfile:1.4
 
 # Base stage with common dependencies
-FROM node:18-alpine AS base
-RUN apk add --no-cache openssl openssl-dev libc6-compat dumb-init curl postgresql-client
+FROM node:18.19-alpine3.19 AS base
+# Combine RUN commands and clean cache in single layer
+RUN apk add --no-cache dumb-init curl postgresql15-client && \
+    npm config set registry https://registry.npmjs.org/ && \
+    npm config set fetch-retries 3 && \
+    npm config set fetch-retry-factor 2 && \
+    npm config set fetch-retry-mintimeout 10000 && \
+    npm config set fetch-retry-maxtimeout 60000
 WORKDIR /app
 
 # Dependencies stage - only rebuild when package files change
 FROM base AS deps
 # Copy package files first for better caching
 COPY package*.json ./
-# Install dependencies with advanced cache mounts for ultra-fast builds
+# Install dependencies with advanced cache mounts and parallel installation
 RUN --mount=type=cache,target=/root/.npm \
     --mount=type=cache,target=/root/.cache \
+    # Set npm to run in parallel for faster installs
+    npm config set maxsockets 50 && \
+    npm config set fetch-timeout 60000 && \
     # Install production dependencies first for faster builds
-    npm ci --only=production && \
+    NODE_ENV=production npm ci --prefer-offline --no-audit --no-optional && \
     # Keep a copy of production dependencies
     cp -R node_modules /tmp/node_modules && \
     # Install dev dependencies for building
-    npm ci --only=dev
+    npm ci --prefer-offline --no-audit
 
-# Build stage with ultra-fast optimizations
+# Build stage with optimizations
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
+# Copy config files needed for build
+COPY tsconfig*.json ./
+COPY nodemon.json ./
+COPY config/ ./config/
+COPY prisma/ ./prisma/
+# Then copy the rest of the source
 COPY . .
 
 # Build optimizations with advanced caching
 ENV NODE_ENV=production
 ENV PRISMA_GENERATE_DATAPROXY=true
-ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV TS_NODE_TRANSPILE_ONLY=true
 
-# Generate Prisma client with advanced cache
+# Generate Prisma client with advanced cache and parallel operations
 RUN --mount=type=cache,target=/root/.cache/prisma \
     --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/app/node_modules/.cache \
+    NODE_OPTIONS="--max-old-space-size=4096" \
     npx prisma generate
 
-# Build TypeScript with optimizations
+# Build TypeScript with optimizations and parallel transpilation
 RUN --mount=type=cache,target=/root/.cache \
-    --mount=type=cache,target=/tmp \
-    NODE_OPTIONS="--max-old-space-size=2048" \
+    --mount=type=cache,target=/app/node_modules/.cache \
+    NODE_OPTIONS="--max-old-space-size=4096" \
     npm run build
 
 # Production stage
 FROM base AS production
 ENV NODE_ENV=production
-ENV NODE_OPTIONS="--max-old-space-size=1024"
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 backend
 
-# Copy production dependencies
+# Copy only necessary files in optimal order
 COPY --from=deps /tmp/node_modules ./node_modules
-# Copy built application
 COPY --from=builder /app/dist ./dist
-# Copy necessary files
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/config ./config
+COPY --from=builder /app/config/apollo.json ./config/apollo.json
 COPY --from=builder /app/package*.json ./
 COPY start.sh ./
-RUN chmod +x start.sh
 
-# Set correct permissions
-RUN chown -R backend:nodejs /app
+# Clean up unnecessary files from node_modules
+RUN npm prune --production && \
+    find node_modules -type f -name "*.d.ts" -delete && \
+    find node_modules -type f -name "*.map" -delete && \
+    find node_modules -type d -name "doc" -exec rm -rf {} + 2>/dev/null || true && \
+    find node_modules -type d -name "docs" -exec rm -rf {} + 2>/dev/null || true && \
+    find node_modules -type d -name "example" -exec rm -rf {} + 2>/dev/null || true && \
+    find node_modules -type d -name "examples" -exec rm -rf {} + 2>/dev/null || true && \
+    chmod +x start.sh && \
+    chown -R backend:nodejs /app
+
 USER backend
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+# Health check with optimized intervals
+HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -f http://localhost:3001/health || curl -f http://localhost:3001 || exit 1
 
 EXPOSE 3001
