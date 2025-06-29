@@ -10,21 +10,29 @@ FROM base AS deps
 # Copy package files first for better caching
 COPY package*.json ./
 # Install dependencies with cache mount for better performance
+# Optimized dependency installation
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci && \
+    # Install production dependencies first
+    npm ci --only=production && \
     # Keep a copy of production dependencies
-    npm ci --omit=dev && \
     cp -R node_modules /tmp/node_modules && \
-    # Install all dependencies (including dev) for building
-    npm ci
+    # Install dev dependencies for building
+    npm ci --only=dev
 
-# Build stage
+# Build stage with optimizations
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Generate Prisma client
-RUN npx prisma generate
-# Build TypeScript
+
+# Build optimizations
+ENV NODE_ENV=production
+ENV PRISMA_GENERATE_DATAPROXY=true
+
+# Generate Prisma client with cache
+RUN --mount=type=cache,target=/root/.cache/prisma \
+    npx prisma generate
+
+# Build TypeScript with optimizations
 RUN npm run build
 
 # Production stage

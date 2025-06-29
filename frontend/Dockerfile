@@ -10,35 +10,31 @@ FROM base AS deps
 # Copy package files first for better caching
 COPY package*.json ./
 # Install dependencies with cache mount for better performance
+# Use npm ci --only=production for faster installs
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci
+    npm ci --only=production && \
+    npm ci --only=dev
 
-# Development stage
-FROM base AS dev
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-EXPOSE 3000
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-RUN chown -R nextjs:nodejs /app
-USER nextjs
-CMD ["npm", "run", "dev"]
-
-# Build stage
+# Build stage with optimizations
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 # Copy environment file first
 COPY .env.local ./
 COPY . .
 
-# Set environment variables for build
+# Set environment variables for build optimization
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV NEXT_SHARP_PATH=/app/node_modules/sharp
 
+# Build optimizations with BuildKit features
 # Source the environment variables from .env.local and build
-RUN set -a && \
+RUN --mount=type=cache,target=/app/.next/cache \
+    set -a && \
     . ./.env.local && \
     set +a && \
+    # Enable build cache and parallel builds
+    NEXT_TELEMETRY_DISABLED=1 \
     npm run build
 
 # Production stage

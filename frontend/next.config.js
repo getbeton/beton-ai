@@ -7,6 +7,11 @@ const nextConfig = {
   images: {
     domains: ['avatars.githubusercontent.com', 'lh3.googleusercontent.com'],
   },
+  // Build optimizations
+  swcMinify: true, // Use SWC for minification (faster than Terser)
+  compress: true, // Enable gzip compression
+  poweredByHeader: false, // Remove X-Powered-By header
+  generateEtags: false, // Disable ETag generation for better performance
   async headers() {
     return [
       {
@@ -35,6 +40,31 @@ const nextConfig = {
   // Disable static optimization for pages that need runtime environment variables
   experimental: {
     missingSuspenseWithCSRBailout: false,
+    // Build optimizations (removed optimizeCss to fix build)
+    optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'], // Optimize large packages
+  },
+  // Webpack optimizations
+  webpack: (config, { dev, isServer }) => {
+    // Production optimizations only
+    if (!dev && !isServer) {
+      // Enable tree shaking
+      config.optimization.usedExports = true;
+      config.optimization.sideEffects = false;
+      
+      // Split chunks for better caching
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+          },
+        },
+      };
+    }
+    
+    return config;
   },
 }
 
