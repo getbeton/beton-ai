@@ -9,35 +9,41 @@ WORKDIR /app
 FROM base AS deps
 # Copy package files first for better caching
 COPY package*.json ./
-# Install dependencies with cache mount for better performance
-# Optimized dependency installation
+# Install dependencies with advanced cache mounts for ultra-fast builds
 RUN --mount=type=cache,target=/root/.npm \
-    # Install production dependencies first
+    --mount=type=cache,target=/root/.cache \
+    # Install production dependencies first for faster builds
     npm ci --only=production && \
     # Keep a copy of production dependencies
     cp -R node_modules /tmp/node_modules && \
     # Install dev dependencies for building
     npm ci --only=dev
 
-# Build stage with optimizations
+# Build stage with ultra-fast optimizations
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build optimizations
+# Build optimizations with advanced caching
 ENV NODE_ENV=production
 ENV PRISMA_GENERATE_DATAPROXY=true
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-# Generate Prisma client with cache
+# Generate Prisma client with advanced cache
 RUN --mount=type=cache,target=/root/.cache/prisma \
+    --mount=type=cache,target=/root/.cache \
     npx prisma generate
 
 # Build TypeScript with optimizations
-RUN npm run build
+RUN --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/tmp \
+    NODE_OPTIONS="--max-old-space-size=2048" \
+    npm run build
 
 # Production stage
 FROM base AS production
 ENV NODE_ENV=production
+ENV NODE_OPTIONS="--max-old-space-size=1024"
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \

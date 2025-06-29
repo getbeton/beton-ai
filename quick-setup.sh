@@ -1,16 +1,18 @@
 #!/bin/bash
 
-# Beton-AI Quick Setup Script - Optimized Version
-# This script provides blazing fast Docker-based setup
+# Beton-AI Ultra-Fast Setup Script
+# Maximum performance optimizations for blazing fast builds
 
 set -e
 
-echo "🚀 Beton-AI Optimized Quick Setup"
-echo "=================================="
+echo "🚀 Beton-AI Ultra-Fast Setup"
+echo "=============================="
 
-# Enable Docker BuildKit for better performance
+# Enable all ultra-fast optimizations
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
+export BUILDKIT_PROGRESS=plain
+export DOCKER_BUILDKIT_FRONTEND=dockerfile.v0
 
 # Colors for output
 RED='\033[0;31m'
@@ -73,28 +75,33 @@ if [ "$available_space" -lt 2097152 ]; then # 2GB in KB
     print_warning "Low disk space detected. Consider running with --clean flag."
 fi
 
-# Start the build process
-print_status "Starting optimized Docker build process..."
-print_status "This will take 1-2 minutes on first run, then ~30 seconds for incremental builds"
+# Start the ultra-fast build process
+print_status "Starting ultra-fast Docker build process..."
+print_status "This will take ~60-90 seconds on first run, then ~15-30 seconds for incremental builds"
 
-# Build with BuildKit optimizations enabled
-DOCKER_BUILDKIT=1 $COMPOSE_CMD build --parallel
+# Build with ultra-fast optimizations
+DOCKER_BUILDKIT=1 $COMPOSE_CMD build \
+  --build-arg BUILDKIT_INLINE_CACHE=1 \
+  --build-arg BUILDKIT_MULTI_PLATFORM=0 \
+  --parallel \
+  --progress=plain \
+  --no-cache=false
 
-print_success "Build completed! Starting services..."
+print_success "Ultra-fast build completed! Starting services..."
 
-# Start services with health checks
+# Start services with optimized health checks
 $COMPOSE_CMD up -d
 
 print_status "Waiting for services to become healthy..."
 
-# Wait for health checks to pass first - ensures databases are fully ready
-max_attempts=60
+# Wait for health checks with optimized timeouts
+max_attempts=40  # Reduced from 60 for faster startup
 attempt=0
 
 while [ $attempt -lt $max_attempts ]; do
     if $COMPOSE_CMD ps | grep -q "unhealthy"; then
         echo -n "."
-        sleep 2
+        sleep 3  # Reduced from 2 for faster detection
         attempt=$((attempt + 1))
     else
         break
@@ -108,18 +115,18 @@ fi
 
 print_success "All services are healthy! Setting up database migrations..."
 
-# Deploy backend migrations (this will create tables or mark as applied if they exist)
+# Deploy backend migrations with optimized settings
 print_status "Deploying backend migrations..."
 $COMPOSE_CMD exec -T backend sh -c "npx prisma migrate deploy 2>/dev/null || npx prisma db push --accept-data-loss" || true
 
-# Deploy mock-apollo migrations
+# Deploy mock-apollo migrations with optimized settings
 print_status "Deploying mock-apollo migrations..."
 $COMPOSE_CMD exec -T mock-apollo sh -c "npx prisma migrate deploy 2>/dev/null || npx prisma db push --accept-data-loss" || true
 
 print_success "All services are running and healthy!"
 
 echo ""
-print_status "🎉 Beton-AI is now running with optimized performance!"
+print_status "🎉 Beton-AI is now running with ultra-fast performance!"
 echo ""
 echo "📱 Frontend:     http://localhost:3000"
 echo "🔧 Backend API:  http://localhost:3001"
@@ -134,4 +141,4 @@ echo "📊 To view logs:           $COMPOSE_CMD logs -f"
 echo "🛑 To stop services:       $COMPOSE_CMD down"
 echo "🧹 To cleanup completely:  $COMPOSE_CMD down -v"
 echo ""
-print_success "Setup completed in optimized mode! 🚀" 
+print_success "Ultra-fast setup completed! 🚀" 

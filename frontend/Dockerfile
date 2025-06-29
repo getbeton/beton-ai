@@ -9,13 +9,15 @@ WORKDIR /app
 FROM base AS deps
 # Copy package files first for better caching
 COPY package*.json ./
-# Install dependencies with cache mount for better performance
-# Use npm ci --only=production for faster installs
+# Install dependencies with advanced cache mounts for ultra-fast builds
 RUN --mount=type=cache,target=/root/.npm \
+    --mount=type=cache,target=/root/.cache \
+    # Install production dependencies first for faster builds
     npm ci --only=production && \
+    # Install dev dependencies for building
     npm ci --only=dev
 
-# Build stage with optimizations
+# Build stage with ultra-fast optimizations
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 # Copy environment file first
@@ -26,15 +28,19 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV NEXT_SHARP_PATH=/app/node_modules/sharp
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
-# Build optimizations with BuildKit features
-# Source the environment variables from .env.local and build
+# Ultra-fast build optimizations with multiple cache mounts
 RUN --mount=type=cache,target=/app/.next/cache \
+    --mount=type=cache,target=/root/.npm \
+    --mount=type=cache,target=/root/.cache \
+    --mount=type=cache,target=/tmp \
     set -a && \
     . ./.env.local && \
     set +a && \
-    # Enable build cache and parallel builds
+    # Enable build cache and parallel builds with optimizations
     NEXT_TELEMETRY_DISABLED=1 \
+    NODE_OPTIONS="--max-old-space-size=2048" \
     npm run build
 
 # Production stage
@@ -43,6 +49,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS="--max-old-space-size=1024"
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
