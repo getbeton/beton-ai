@@ -1,168 +1,107 @@
 #!/bin/bash
 
-# Source the setup_env_files function from setup.sh
-source ./setup.sh
+# Function to prompt for environment variables (extracted from setup.sh)
+setup_env_files() {
+    echo "📝 Setting up environment files..."
+    
+    # Backend .env setup
+    if [ ! -f "backend/.env" ]; then
+        echo "🔧 Configuring backend/.env"
+        cp backend/env.example backend/.env
+        
+        echo "Please enter the following Supabase details (press Enter to use defaults):"
+        read -p "Supabase URL: " supabase_url
+        read -p "Supabase Anon Key: " supabase_anon_key
+        read -p "Supabase Service Role Key: " supabase_service_role_key
+        read -p "JWT Secret (or press Enter for random): " jwt_secret
+        
+        # Generate random JWT secret if not provided
+        if [ -z "$jwt_secret" ]; then
+            jwt_secret=$(openssl rand -base64 32)
+        fi
+        
+        # Update backend/.env
+        if [ ! -z "$supabase_url" ]; then
+            sed -i.bak "s|SUPABASE_URL=.*|SUPABASE_URL=$supabase_url|" backend/.env
+        fi
+        if [ ! -z "$supabase_anon_key" ]; then
+            sed -i.bak "s|SUPABASE_ANON_KEY=.*|SUPABASE_ANON_KEY=$supabase_anon_key|" backend/.env
+        fi
+        if [ ! -z "$supabase_service_role_key" ]; then
+            sed -i.bak "s|SUPABASE_SERVICE_ROLE_KEY=.*|SUPABASE_SERVICE_ROLE_KEY=$supabase_service_role_key|" backend/.env
+        fi
+        sed -i.bak "s|JWT_SECRET=.*|JWT_SECRET=$jwt_secret|" backend/.env
+        rm -f backend/.env.bak
+    fi
+    
+    # Frontend .env.local setup
+    if [ ! -f "frontend/.env.local" ]; then
+        echo "🔧 Configuring frontend/.env.local"
+        cp frontend/env.local.example frontend/.env.local
+        
+        # Use the same Supabase values for frontend
+        if [ ! -z "$supabase_url" ]; then
+            sed -i.bak "s|NEXT_PUBLIC_SUPABASE_URL=.*|NEXT_PUBLIC_SUPABASE_URL=$supabase_url|" frontend/.env.local
+        fi
+        if [ ! -z "$supabase_anon_key" ]; then
+            sed -i.bak "s|NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$supabase_anon_key|" frontend/.env.local
+        fi
+        rm -f frontend/.env.local.bak
+    fi
+    
+    # Mock Apollo .env setup
+    if [ ! -f "mock-apollo/.env" ]; then
+        echo "🔧 Configuring mock-apollo/.env"
+        cp mock-apollo/env.example mock-apollo/.env
+    fi
+    
+    echo "✅ Environment files configured!"
+}
 
 echo "🚀 Beton-AI Development Environment"
-echo ""
-echo "Choose your development mode:"
-echo "1) Full Docker (all services in containers)"
-echo "2) Frontend Dev + Backend Docker (recommended)"
-echo "3) Backend Dev + Frontend Docker"
-echo "4) Both Dev (frontend + backend local with hot reload)"
-echo "5) Backend Dev Only"
-echo "6) Frontend Dev Only"
-echo ""
-read -p "Enter your choice (1-6): " choice
 echo ""
 read -p "Include Mock Apollo Service? (y/n): " mock_apollo
 
 # Check and setup environment files if needed
 setup_env_files
 
-# Build services list based on mock Apollo choice
-MOCK_APOLLO_SERVICES=""
+echo "🔥 Starting Development Environment (Frontend + Backend Hot Reload)..."
+echo "📦 Starting PostgreSQL, Redis and optional services..."
+
+# Start infrastructure services in Docker (avoid backend and frontend)
 if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
-    MOCK_APOLLO_SERVICES="mock-postgres mock-apollo"
     echo "📡 Mock Apollo Service will be included on port 3002"
     echo "📊 Mock PostgreSQL will be included on port 5433"
-    echo ""
+    docker-compose up -d postgres redis mock-postgres mock-apollo
+else
+    docker-compose up -d postgres redis
 fi
 
-case $choice in
-    1)
-        echo "🐳 Starting all services in Docker..."
-        docker-compose up -d postgres redis backend frontend $MOCK_APOLLO_SERVICES
-        echo ""
-        echo "✅ All services running in Docker:"
-        echo "   - Frontend: http://localhost:3000"
-        echo "   - Backend: http://localhost:3001"
-        echo "   - PostgreSQL: localhost:5432"
-        echo "   - Redis: localhost:6379"
-        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
-            echo "   - Mock Apollo: http://localhost:3002"
-        fi
-        ;;
-    2)
-        echo "🎨 Starting Frontend Dev + Backend Docker (Hot Reload)..."
-        echo "📦 Starting backend services..."
-        docker-compose up postgres redis backend $MOCK_APOLLO_SERVICES -d
-        
-        echo "⏳ Waiting for services to start..."
-        sleep 5
-        
-        echo "✅ Backend services are running!"
-        echo "   - PostgreSQL: localhost:5432"
-        echo "   - Redis: localhost:6379"
-        echo "   - Backend API: http://localhost:3001"
-        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
-            echo "   - Mock Apollo: http://localhost:3002"
-        fi
-        echo ""
-        echo "🎨 Starting frontend in development mode..."
-        echo "   - Frontend: http://localhost:3000 (Hot Reload)"
-        echo ""
-        echo "💡 Note: If port 3000 is busy, Next.js will auto-select another port"
-        echo "   Make sure it doesn't conflict with Mock Apollo (port 3002)"
-        echo ""
-        
-        cd frontend && npm run dev
-        ;;
-    3)
-        echo "⚡ Starting Backend Dev + Frontend Docker..."
-        echo "📦 Starting frontend and database..."
-        docker-compose up postgres redis frontend $MOCK_APOLLO_SERVICES -d
-        
-        echo "⏳ Waiting for services to start..."
-        sleep 5
-        
-        echo "✅ Frontend and database are running!"
-        echo "   - Frontend: http://localhost:3000"
-        echo "   - PostgreSQL: localhost:5432"
-        echo "   - Redis: localhost:6379"
-        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
-            echo "   - Mock Apollo: http://localhost:3002"
-        fi
-        echo ""
-        echo "⚡ Starting backend in development mode..."
-        echo "   - Backend: http://localhost:3001 (Hot Reload)"
-        echo ""
-        
-        ./dev-backend.sh
-        ;;
-    4)
-        echo "🔥 Starting Both Dev (Frontend + Backend Hot Reload)..."
-        echo "📦 Starting PostgreSQL, Redis and optional services..."
-        docker-compose up postgres redis $MOCK_APOLLO_SERVICES -d
-        
-        echo "⏳ Waiting for services to start..."
-        sleep 3
-        
-        echo "✅ Services are running:"
-        echo "   - PostgreSQL: localhost:5432"
-        echo "   - Redis: localhost:6379"
-        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
-            echo "   - Mock Apollo: http://localhost:3002"
-        fi
-        echo ""
-        echo "🔥 Starting both frontend and backend in development mode..."
-        echo "   - Frontend: http://localhost:3000 (Hot Reload)"
-        echo "   - Backend: http://localhost:3001 (Hot Reload)"
-        echo ""
-        echo "Opening two terminal windows..."
-        
-        # Start backend in background
-        ./dev-backend.sh &
-        BACKEND_PID=$!
-        
-        # Wait a moment for backend to start
-        sleep 3
-        
-        # Start frontend
-        cd frontend && npm run dev
-        
-        # Clean up background process when script exits
-        trap "kill $BACKEND_PID 2>/dev/null" EXIT
-        ;;
-    5)
-        echo "⚡ Starting Backend Dev Only..."
-        echo "📦 Starting PostgreSQL, Redis and optional services..."
-        docker-compose up postgres redis $MOCK_APOLLO_SERVICES -d
-        
-        echo "⏳ Waiting for services to start..."
-        sleep 3
-        
-        echo "✅ Services are running:"
-        echo "   - PostgreSQL: localhost:5432"
-        echo "   - Redis: localhost:6379"
-        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
-            echo "   - Mock Apollo: http://localhost:3002"
-        fi
-        echo ""
-        
-        ./dev-backend.sh
-        ;;
-    6)
-        echo "🎨 Starting Frontend Dev Only..."
-        echo "📦 Starting backend services..."
-        docker-compose up postgres redis backend $MOCK_APOLLO_SERVICES -d
-        
-        echo "⏳ Waiting for services to start..."
-        sleep 5
-        
-        echo "✅ Backend services are running!"
-        echo "   - Backend API: http://localhost:3001"
-        echo "   - PostgreSQL: localhost:5432"
-        echo "   - Redis: localhost:6379"
-        if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
-            echo "   - Mock Apollo: http://localhost:3002"
-        fi
-        echo ""
-        
-        cd frontend && npm run dev
-        ;;
-    *)
-        echo "❌ Invalid choice. Please run the script again and choose 1-6."
-        exit 1
-        ;;
-esac 
+echo "⏳ Waiting for services to start..."
+sleep 3
+
+echo "✅ Services are running:"
+echo "   - PostgreSQL: localhost:5432"
+echo "   - Redis: localhost:6379"
+if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
+    echo "   - Mock PostgreSQL: localhost:5433"
+    echo "   - Mock Apollo: http://localhost:3002"
+fi
+echo ""
+echo "🔥 Starting both frontend and backend in development mode..."
+echo "   - Frontend: http://localhost:3000 (Hot Reload)"
+echo "   - Backend: http://localhost:3001 (Hot Reload)"
+echo ""
+
+# Start backend in background
+./dev-backend.sh &
+BACKEND_PID=$!
+
+# Wait a moment for backend to start
+sleep 3
+
+# Start frontend
+cd frontend && npm run dev
+
+# Clean up background process when script exits
+trap "kill $BACKEND_PID 2>/dev/null" EXIT 
