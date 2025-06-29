@@ -8,202 +8,167 @@ datasource db {
 }
 
 model Integration {
-  id          String   @id @default(cuid())
-  userId      String   // Supabase user ID
-  serviceName String   // "apollo", "openai", etc.
-  name        String   // User-defined name for this integration
-  isActive    Boolean  @default(true)
+  id              String          @id @default(cuid())
+  userId          String
+  serviceName     String
+  name            String
+  isActive        Boolean         @default(true)
   lastHealthCheck DateTime?
-  healthStatus String @default("unknown") // "healthy", "unhealthy", "unknown"
-  keySource   String   @default("personal") // "personal", "platform"
-  platformKeyId String? // Reference to platform key if using platform key
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  apiKeys     ApiKey[]
-  platformKey PlatformApiKey? @relation(fields: [platformKeyId], references: [id])
-  
+  healthStatus    String          @default("unknown")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  keySource       String          @default("personal")
+  platformKeyId   String?
+  apiKeys         ApiKey[]
+  platformKey     PlatformApiKey? @relation(fields: [platformKeyId], references: [id])
+
   @@unique([userId, serviceName, name])
   @@map("integrations")
 }
 
 model ApiKey {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   integrationId String
-  apiKey        String   // Encrypted API key (only for personal keys)
-  keyType       String   // "platform", "personal"
-  isActive      Boolean  @default(true)
+  apiKey        String
+  keyType       String
+  isActive      Boolean     @default(true)
   lastUsed      DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Relations
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
   integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-  
+
   @@unique([integrationId, keyType])
   @@map("api_keys")
 }
 
-// Platform-provided API keys (one-to-many with users)
 model PlatformApiKey {
-  id          String   @id @default(cuid())
-  serviceName String   // "apollo", "openai", etc.
-  apiKey      String   // Encrypted platform API key (backend access only)
-  isActive    Boolean  @default(true)
-  description String?  // Description of what this key is for
-  rateLimit   Int?     // Optional rate limit per day
-  usageCount  Int      @default(0) // Track how many users are using this key
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations - one platform key can be used by many integrations
+  id           String        @id @default(cuid())
+  serviceName  String        @unique
+  apiKey       String
+  isActive     Boolean       @default(true)
+  description  String?
+  rateLimit    Int?
+  usageCount   Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   integrations Integration[]
-  
-  @@unique([serviceName])
+
   @@map("platform_api_keys")
 }
 
 model UserPreferences {
   id        String   @id @default(cuid())
-  userId    String   @unique // Supabase user ID
+  userId    String   @unique
   theme     String   @default("light")
   language  String   @default("en")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@map("user_preferences")
 }
 
-// User Tables for storing search results and custom data
 model UserTable {
-  id          String   @id @default(cuid())
-  userId      String   // Supabase user ID
-  name        String   // User-defined table name
-  description String?  // Optional description
-  sourceType  String   @default("manual") // "apollo", "manual", "csv", etc.
-  sourceId    String?  // Reference to source integration if applicable
-  isArchived  Boolean  @default(false)
-  
-  // Bulk processing status
-  isProcessing    Boolean @default(false)
+  id              String            @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  sourceType      String            @default("manual")
+  sourceId        String?
+  isArchived      Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  isProcessing    Boolean           @default(false)
   processingJobId String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  columns     TableColumn[]
-  rows        TableRow[]
-  bulkJobs    BulkDownloadJob[]
-  
+  bulkJobs        BulkDownloadJob[]
+  columns         TableColumn[]
+  rows            TableRow[]
+
   @@unique([userId, name])
   @@map("user_tables")
 }
 
-// Custom columns for user tables
 model TableColumn {
-  id          String   @id @default(cuid())
-  tableId     String
-  name        String   // Column name
-  type        String   // "text", "number", "currency", "date", "url", "email", "checkbox"
-  isRequired  Boolean  @default(false)
-  isEditable  Boolean  @default(true)
-  defaultValue String? // Default value for new rows
-  order       Int      // Column order
-  settings    Json     @default("{}") // Column-specific settings (currency symbol, date format, etc.)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  table       UserTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  cells       TableCell[]
-  
+  id           String      @id @default(cuid())
+  tableId      String
+  name         String
+  type         String
+  isRequired   Boolean     @default(false)
+  isEditable   Boolean     @default(true)
+  defaultValue String?
+  order        Int
+  settings     Json        @default("{}")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  cells        TableCell[]
+  table        UserTable   @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
   @@unique([tableId, name])
   @@map("table_columns")
 }
 
-// Rows in user tables
 model TableRow {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   tableId     String
-  sourceRowId String?  // Original row ID if imported from external source
-  isSelected  Boolean  @default(false) // For bulk operations
-  order       Int      // Row order
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  table       UserTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  sourceRowId String?
+  isSelected  Boolean     @default(false)
+  order       Int
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   cells       TableCell[]
-  
+  table       UserTable   @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
   @@map("table_rows")
 }
 
-// Individual cells in the table
 model TableCell {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   rowId     String
   columnId  String
-  value     String?  // Stored as string, converted based on column type
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  row       TableRow    @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  value     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
   column    TableColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  
+  row       TableRow    @relation(fields: [rowId], references: [id], onDelete: Cascade)
+
   @@unique([rowId, columnId])
   @@map("table_cells")
 }
 
-// Bulk download jobs for large data imports
 model BulkDownloadJob {
-  id          String   @id @default(cuid())
-  userId      String   // Supabase user ID
-  tableId     String   // Target UserTable ID
-  jobType     String   @default("apollo_people_search")
-  status      String   @default("pending") // pending, running, completed, failed, cancelled
-  searchQuery Json     // Original Apollo search filters
-  
-  // Progress tracking
-  totalEstimated    Int?     // Estimated total records
-  totalProcessed    Int      @default(0)
-  currentPage       Int      @default(1)
-  totalPages        Int?     // Total pages to process
-  
-  // Error handling
-  failureCount      Int      @default(0)
-  lastError         String?
-  maxRetries        Int      @default(3)
-  
-  // Job queue reference
-  bullJobId         String?  // Bull queue job ID
-  
-  // Metadata
-  startedAt         DateTime?
-  completedAt       DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  // Relations
-  table            UserTable @relation(fields: [tableId], references: [id])
-  progressEntries  BulkDownloadProgress[]
-  
+  id              String                 @id @default(cuid())
+  userId          String
+  tableId         String
+  jobType         String                 @default("apollo_people_search")
+  status          String                 @default("pending")
+  searchQuery     Json
+  totalEstimated  Int?
+  totalProcessed  Int                    @default(0)
+  currentPage     Int                    @default(1)
+  totalPages      Int?
+  failureCount    Int                    @default(0)
+  lastError       String?
+  maxRetries      Int                    @default(3)
+  bullJobId       String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  table           UserTable              @relation(fields: [tableId], references: [id])
+  progressEntries BulkDownloadProgress[]
+
   @@map("bulk_download_jobs")
 }
 
 model BulkDownloadProgress {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   jobId       String
   page        Int
   recordCount Int
-  status      String   // completed, failed
+  status      String
   error       String?
-  processedAt DateTime @default(now())
-  
+  processedAt DateTime        @default(now())
   job         BulkDownloadJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  
+
   @@unique([jobId, page])
   @@map("bulk_download_progress")
-} 
+}

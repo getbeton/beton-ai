@@ -1,34 +1,61 @@
-FROM node:18-alpine
+# syntax=docker/dockerfile:1.4
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl openssl-dev
-
+# Base stage with common dependencies
+FROM node:18-alpine AS base
+RUN apk add --no-cache openssl openssl-dev libc6-compat dumb-init curl postgresql-client
 WORKDIR /app
 
-# Copy package files
+# Dependencies stage - only rebuild when package files change
+FROM base AS deps
+# Copy package files first for better caching
 COPY package*.json ./
+# Install dependencies with cache mount for better performance
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci && \
+    # Keep a copy of production dependencies
+    npm ci --omit=dev && \
+    cp -R node_modules /tmp/node_modules && \
+    # Install all dependencies (including dev) for building
+    npm ci
 
-# Install all dependencies (including dev dependencies for building)
-RUN npm ci
-
-# Copy source code
+# Build stage
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
 # Generate Prisma client
 RUN npx prisma generate
-
 # Build TypeScript
 RUN npm run build
 
-# Remove node_modules and reinstall only production dependencies
-RUN rm -rf node_modules && npm ci --only=production
+# Production stage
+FROM base AS production
+ENV NODE_ENV=production
 
-# Copy startup script and make it executable
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 backend
+
+# Copy production dependencies
+COPY --from=deps /tmp/node_modules ./node_modules
+# Copy built application
+COPY --from=builder /app/dist ./dist
+# Copy necessary files
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/config ./config
+COPY --from=builder /app/package*.json ./
 COPY start.sh ./
 RUN chmod +x start.sh
 
-# Expose port
+# Set correct permissions
+RUN chown -R backend:nodejs /app
+USER backend
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3001/health || curl -f http://localhost:3001 || exit 1
+
 EXPOSE 3001
 
-# Use startup script instead of direct npm start
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["./start.sh"] 

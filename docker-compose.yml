@@ -59,6 +59,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: production
     container_name: beton-ai-backend
     env_file:
       - ./backend/.env
@@ -83,6 +84,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: production
     container_name: beton-ai-frontend
     env_file:
       - ./frontend/.env.local
@@ -94,11 +96,13 @@ services:
       - backend
     networks:
       - beton-network
+    restart: unless-stopped
 
   mock-apollo:
     build:
       context: ./mock-apollo
       dockerfile: Dockerfile
+      target: production
     container_name: beton-ai-mock-apollo
     environment:
       DATABASE_URL: postgresql://postgres:postgres123@mock-postgres:5432/mock_apollo
@@ -111,11 +115,6 @@ services:
         condition: service_healthy
     networks:
       - beton-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
     restart: unless-stopped
 
 volumes:

@@ -1,10 +1,43 @@
 services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: deps
+    command: npm run dev
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - /app/dist
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres123@postgres:5432/beton_ai
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MOCK_APOLLO_SERVICE_URL=http://mock-apollo:3002
+    ports:
+      - "3001:3001"
+      - "9229:9229"  # Debug port
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - beton-network
+    develop:
+      watch:
+        - action: sync
+          path: ./backend/src
+          target: /app/src
+        - action: rebuild
+          path: ./backend/package.json
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: deps  # Only build up to deps stage for development
-    command: npm run dev
+      target: dev
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -13,6 +46,10 @@ services:
       - NODE_ENV=development
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - beton-network
     develop:
       watch:
         - action: sync
@@ -28,14 +65,28 @@ services:
     build:
       context: ./mock-apollo
       dockerfile: Dockerfile
+      target: deps
+    command: npm run dev
+    volumes:
+      - ./mock-apollo:/app
+      - /app/node_modules
+      - /app/dist
     environment:
-      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/mock_apollo_dev
+      DATABASE_URL: postgresql://postgres:postgres123@mock-postgres:5432/mock_apollo
       NODE_ENV: development
       PORT: 3002
       LOG_LEVEL: debug
     ports:
       - "3002:3002"
     depends_on:
-      - postgres
+      mock-postgres:
+        condition: service_healthy
     networks:
-      - default 
+      - beton-network
+    develop:
+      watch:
+        - action: sync
+          path: ./mock-apollo/src
+          target: /app/src
+        - action: rebuild
+          path: ./mock-apollo/package.json 

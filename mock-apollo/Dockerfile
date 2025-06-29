@@ -1,60 +1,63 @@
-# Multi-stage build for optimization
-FROM node:18-alpine AS builder
+# syntax=docker/dockerfile:1.4
 
+# Base stage with common dependencies
+FROM node:18-alpine AS base
+RUN apk add --no-cache curl postgresql-client openssl openssl-dev libc6-compat dumb-init
 WORKDIR /app
 
-# Copy package files
+# Dependencies stage - only rebuild when package files change
+FROM base AS deps
+# Copy package files first for better caching
 COPY package*.json ./
+# Install dependencies with cache mount for better performance
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci && \
+    # Keep a copy of production dependencies
+    npm ci --omit=dev && \
+    cp -R node_modules /tmp/node_modules && \
+    # Install all dependencies (including dev) for building
+    npm ci
 
-# Install dependencies
-RUN npm ci --only=production
-
+# Build stage
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
 # Copy Prisma schema and generate client
 COPY prisma ./prisma/
 RUN npx prisma generate
+# Copy source and build
+COPY . .
+RUN npm run build
 
 # Production stage
-FROM node:18-alpine AS production
-
-WORKDIR /app
-
-# Install curl for health checks, postgresql-client for database setup, and openssl for Prisma
-RUN apk add --no-cache curl postgresql-client openssl openssl-dev
-
-# Set OpenSSL environment for Prisma compatibility
+FROM base AS production
+ENV NODE_ENV=production
 ENV OPENSSL_CONF=/etc/ssl/
 
-# Copy dependencies and generated code
-COPY --from=builder /app/node_modules ./node_modules
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 apollo
+
+# Copy production dependencies and built application
+COPY --from=deps /tmp/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
-
-# Copy application source
-COPY . .
-
-# Make setup script executable
+COPY --from=builder /app/package*.json ./
+COPY setup.sh ./
 RUN chmod +x setup.sh
 
-# Install dev dependencies and build
-RUN npm install tsx typescript --save-dev && \
-    npm run build && \
-    npm prune --production
-
-# Regenerate Prisma client with proper OpenSSL settings
+# Regenerate Prisma client for production environment
 RUN npx prisma generate
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S apollo -u 1001
-
-# Change ownership
+# Set correct permissions
 RUN chown -R apollo:nodejs /app
 USER apollo
 
-EXPOSE 3002
-
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:3002/health || exit 1
 
-# Start with database initialization and server
+EXPOSE 3002
+
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["./setup.sh"] 

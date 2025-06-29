@@ -2,18 +2,24 @@
 
 echo "🚀 Starting Beton-AI Backend..."
 
-# Wait for PostgreSQL to be ready
+# Brief wait for PostgreSQL
 echo "⏳ Waiting for PostgreSQL to be ready..."
-until npx prisma db push --accept-data-loss 2>/dev/null; do
-  echo "⏳ PostgreSQL is unavailable - sleeping"
-  sleep 2
-done
-
-echo "✅ PostgreSQL is ready!"
+sleep 5
+echo "✅ PostgreSQL should be ready!"
 
 # Run Prisma migrations
 echo "🔄 Running Prisma migrations..."
+
+# First, try to resolve any existing migrations that may have been applied via db push
+echo "🔧 Resolving existing migrations..."
+npx prisma migrate resolve --applied 0_init 2>/dev/null || true
+
+# Deploy any pending migrations
 npx prisma migrate deploy
+
+# Generate Prisma client
+echo "🔧 Generating Prisma client..."
+npx prisma generate
 
 echo "✅ Migrations completed!"
 

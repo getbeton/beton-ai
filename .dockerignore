@@ -1,0 +1,55 @@
+# Node modules (already in sub-dockerignores but good to have here too)
+**/node_modules/
+**/npm-debug.log*
+
+# Build outputs
+**/dist/
+**/build/
+**/.next/
+**/out/
+
+# Environment files  
+
+# Git
+.git/
+.gitignore
+
+# Documentation (not needed in containers)
+*.md
+CONTRIBUTING.md
+DEVELOPMENT.md
+DOCKER_OPTIMIZATION.md
+ENVIRONMENT.md
+NETWORKING.md
+
+# Development scripts
+dev*.sh
+quick-*.sh
+setup*.sh
+run.sh
+
+# OS files
+.DS_Store
+**/.DS_Store
+**/Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+**/*.swp
+**/*.swo
+
+# Logs
+**/logs/
+**/*.log
+
+# Docker files (prevent recursion)
+**/Dockerfile*
+**/.dockerignore
+
+# Test files
+**/test/
+**/tests/
+**/__tests__/
+**/*.test.*
+**/*.spec.* 

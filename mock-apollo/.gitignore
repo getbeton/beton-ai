@@ -33,7 +33,6 @@ coverage/
 *.lcov
 
 # Prisma
-prisma/migrations/
 
 # IDE
 .vscode/
