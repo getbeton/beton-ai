@@ -20,7 +20,10 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { EmptyState } from './EmptyState';
+import { UploadProgressOverlay } from './upload/UploadProgressOverlay';
 import { validateCSVFile, generateTableNameFromFile } from '@/lib/utils';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { CSVUploadProgress } from '@/types/bulkDownload';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -214,6 +217,80 @@ export default function TableDashboard() {
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const router = useRouter();
 
+  // WebSocket progress tracking for CSV uploads
+  const handleCSVUploadProgress = (progress: CSVUploadProgress) => {
+    if (!uploadProgress || progress.jobId !== uploadProgress.jobId) return;
+
+    setUploadProgress(prev => prev ? {
+      ...prev,
+      progress: progress.progress.percentage,
+      stage: mapBackendStageToFrontend(progress.status),
+      currentStep: progress.progress.currentStep
+    } : null);
+  };
+
+  const handleCSVUploadComplete = (progress: CSVUploadProgress) => {
+    if (!uploadProgress || progress.jobId !== uploadProgress.jobId) return;
+
+    // Update table in list with final data
+    if (progress.tableId && progress.tableName) {
+      const newTable: TableData = {
+        id: progress.tableId,
+        name: progress.tableName,
+        rows: progress.progress.totalRows || 0,
+        columns: 0, // Will be updated when table data loads
+        source: "CSV",
+        lastModified: new Date(),
+        status: "ready",
+        description: "Recently uploaded CSV file",
+      };
+
+      setTables((prev) => [newTable, ...prev]);
+    }
+
+    setUploadProgress(prev => prev ? { 
+      ...prev, 
+      progress: 100, 
+      status: 'success',
+      tableId: progress.tableId 
+    } : null);
+    
+    toast.success('Table created successfully!');
+    setTimeout(() => setUploadProgress(null), 1500);
+  };
+
+  const handleCSVUploadFailed = (progress: CSVUploadProgress) => {
+    if (!uploadProgress || progress.jobId !== uploadProgress.jobId) return;
+
+    setUploadProgress(prev => prev ? { 
+      ...prev, 
+      status: 'error',
+      error: progress.error || 'Upload failed'
+    } : null);
+    
+    toast.error(progress.error || 'Upload failed');
+    setTimeout(() => setUploadProgress(null), 3000);
+  };
+
+  // Initialize WebSocket connection
+  const { isConnected } = useWebSocket({
+    userId: user?.id,
+    onCSVUploadProgress: handleCSVUploadProgress,
+    onCSVUploadComplete: handleCSVUploadComplete,
+    onCSVUploadFailed: handleCSVUploadFailed,
+  });
+
+  // Map backend progress stages to frontend stages
+  const mapBackendStageToFrontend = (backendStage: string): UploadProgress['stage'] => {
+    const stageMap: Record<string, UploadProgress['stage']> = {
+      'uploading': 'upload',
+      'parsing': 'parse', 
+      'creating_table': 'create',
+      'importing_data': 'import'
+    };
+    return stageMap[backendStage] || 'upload';
+  };
+
   useEffect(() => {
     const checkUser = async () => {
       try {
@@ -339,27 +416,10 @@ export default function TableDashboard() {
           jobId: response.data.data.jobId 
         } : null);
         
-        toast.success('CSV uploaded successfully!', { id: 'csv-upload' });
+        toast.success('CSV uploaded successfully! Processing...', { id: 'csv-upload' });
         
-        // Progress tracking will be handled by WebSocket in commit 2.3
-        // For now, simulate completion
-        setTimeout(() => {
-          const newTable: TableData = {
-            id: response.data.data.tableId,
-            name: response.data.data.tableName,
-            rows: 0, // Will be updated by WebSocket
-            columns: 0, // Will be updated by WebSocket  
-            source: "CSV",
-            lastModified: new Date(),
-            status: "processing",
-            description: "Recently uploaded CSV file",
-          };
-
-          setTables((prev) => [newTable, ...prev]);
-          setUploadProgress(prev => prev ? { ...prev, progress: 100, status: "success" } : null);
-          
-          setTimeout(() => setUploadProgress(null), 1500);
-        }, 2000);
+        // Real WebSocket progress tracking begins here
+        // The WebSocket callbacks will handle further progress updates
       }
     } catch (error: any) {
       console.error('Upload failed:', error);
@@ -523,6 +583,18 @@ export default function TableDashboard() {
         <div className="text-sm text-muted-foreground">
           Showing {filteredTables.length} of {tables.length} tables
         </div>
+      )}
+
+      {/* Upload Progress Overlay */}
+      {uploadProgress && (
+        <UploadProgressOverlay
+          progress={uploadProgress}
+          onClose={() => setUploadProgress(null)}
+          onViewTable={(tableId) => {
+            setUploadProgress(null);
+            router.push(`/dashboard/tables/${tableId}`);
+          }}
+        />
       )}
     </div>
   );

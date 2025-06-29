@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { WebSocketMessage, WebSocketAuthMessage, BulkDownloadJobInfo } from '../types/bulkDownload';
+import { WebSocketMessage, WebSocketAuthMessage, BulkDownloadJobInfo, CSVUploadProgress } from '../types/bulkDownload';
 
 interface UseWebSocketOptions {
   userId?: string;
   onJobProgress?: (jobInfo: BulkDownloadJobInfo) => void;
   onJobComplete?: (jobInfo: BulkDownloadJobInfo) => void;
   onJobFailed?: (jobInfo: BulkDownloadJobInfo) => void;
+  onCSVUploadProgress?: (progress: CSVUploadProgress) => void;
+  onCSVUploadComplete?: (progress: CSVUploadProgress) => void;
+  onCSVUploadFailed?: (progress: CSVUploadProgress) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
 }
@@ -16,6 +19,9 @@ export const useWebSocket = (options: UseWebSocketOptions) => {
     onJobProgress,
     onJobComplete,
     onJobFailed,
+    onCSVUploadProgress,
+    onCSVUploadComplete,
+    onCSVUploadFailed,
     onConnect,
     onDisconnect
   } = options;
@@ -70,18 +76,33 @@ export const useWebSocket = (options: UseWebSocketOptions) => {
               console.log('WebSocket authentication successful');
               break;
             case 'job_progress':
-              if (message.data && onJobProgress) {
-                onJobProgress(message.data);
+              if (message.data && onJobProgress && 'createdAt' in message.data) {
+                onJobProgress(message.data as BulkDownloadJobInfo);
               }
               break;
             case 'job_complete':
-              if (message.data && onJobComplete) {
-                onJobComplete(message.data);
+              if (message.data && onJobComplete && 'createdAt' in message.data) {
+                onJobComplete(message.data as BulkDownloadJobInfo);
               }
               break;
             case 'job_failed':
-              if (message.data && onJobFailed) {
-                onJobFailed(message.data);
+              if (message.data && onJobFailed && 'createdAt' in message.data) {
+                onJobFailed(message.data as BulkDownloadJobInfo);
+              }
+              break;
+            case 'csv_upload_progress':
+              if (message.data && onCSVUploadProgress && 'jobId' in message.data) {
+                onCSVUploadProgress(message.data as CSVUploadProgress);
+              }
+              break;
+            case 'csv_upload_complete':
+              if (message.data && onCSVUploadComplete && 'jobId' in message.data) {
+                onCSVUploadComplete(message.data as CSVUploadProgress);
+              }
+              break;
+            case 'csv_upload_failed':
+              if (message.data && onCSVUploadFailed && 'jobId' in message.data) {
+                onCSVUploadFailed(message.data as CSVUploadProgress);
               }
               break;
           }
@@ -121,7 +142,7 @@ export const useWebSocket = (options: UseWebSocketOptions) => {
       setConnectionStatus('error');
       isConnectingRef.current = false;
     }
-  }, [userId, onJobProgress, onJobComplete, onJobFailed, onConnect, onDisconnect]);
+  }, [userId, onJobProgress, onJobComplete, onJobFailed, onCSVUploadProgress, onCSVUploadComplete, onCSVUploadFailed, onConnect, onDisconnect]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
