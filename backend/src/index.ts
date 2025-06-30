@@ -27,9 +27,15 @@ app.use(cors({
   origin: [
     'http://localhost:3000',           // Frontend in development
     'http://localhost:3001',           // Backend (for testing)
-    'https://yourdomain.com'           // Your actual production domain
+    'https://beton-ai-frontend-production.up.railway.app',  // Railway frontend
+    'https://beton-ai-frontend-production.up.railway.app/', // Railway frontend with trailing slash
+    /^https:\/\/.*\.up\.railway\.app$/,  // Any Railway subdomain
   ],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with'],
+  // Support WebSocket upgrade headers
+  optionsSuccessStatus: 200
 }));
 
 // Rate limiting
@@ -42,7 +48,7 @@ app.use(limiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Logging middleware
 app.use(morgan('combined'));

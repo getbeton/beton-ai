@@ -59,4 +59,4 @@ EXPOSE 3002
 
 # Use dumb-init for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["./setup.sh"] 
+CMD ["npm", "start"] 

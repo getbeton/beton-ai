@@ -15,6 +15,12 @@ RUN npm ci --only=production --no-optional && \
 
 # Build stage with optimizations
 FROM base AS builder
+# Define build arguments for environment variables
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_WS_URL
+
 COPY --from=deps /app/node_modules ./node_modules
 # Copy config files needed for build
 COPY next.config.js ./
@@ -22,22 +28,22 @@ COPY postcss.config.js ./
 COPY tailwind.config.js ./
 COPY tsconfig*.json ./
 COPY components.json ./
-# Copy environment file first
-COPY .env.local ./
-# Then copy the rest of the source
+# Copy source code (excluding .env.local - let Railway handle environment variables)
 COPY . .
 
-# Set environment variables for build optimization
+# Set environment variables for build optimization with build args
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV NEXT_SHARP_PATH=/app/node_modules/sharp
 ENV NODE_OPTIONS="--max-old-space-size=2048"
+# Set environment variables from build args
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 
-# Build optimizations (Railway-compatible)
-RUN set -a && \
-    . ./.env.local && \
-    set +a && \
-    NEXT_TELEMETRY_DISABLED=1 \
+# Build optimizations (Railway-compatible) - use Railway's build-time env vars
+RUN NEXT_TELEMETRY_DISABLED=1 \
     NODE_OPTIONS="--max-old-space-size=2048" \
     npm run build
 
@@ -62,7 +68,7 @@ RUN mkdir .next && chown nextjs:nodejs .next
 # Automatically leverage output traces to reduce image size
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/.env.local ./
+# Don't copy .env.local - let Railway inject environment variables at runtime
 
 # Clean up unnecessary files
 RUN find . -type f -name "*.map" -delete && \

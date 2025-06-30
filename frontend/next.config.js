@@ -3,6 +3,8 @@ const nextConfig = {
   output: 'standalone',
   // Skip static generation for pages that require runtime environment variables
   skipTrailingSlashRedirect: true,
+  // Disable static generation for all pages (they'll be server-side rendered)
+  trailingSlash: false,
   // App Router is now stable in Next.js 14, no experimental config needed
   images: {
     domains: ['avatars.githubusercontent.com', 'lh3.googleusercontent.com'],

@@ -59,7 +59,6 @@ Dockerfile*
 .dockerignore
 
 # Development files
-.env.local.example
 README.md
 
 # Test files

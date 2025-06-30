@@ -41,7 +41,15 @@ export const useWebSocket = (options: UseWebSocketOptions) => {
     }
 
     isConnectingRef.current = true;
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001/ws';
+    
+    // Determine WebSocket URL - use WSS for production (Railway)
+    let wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001/ws';
+    
+    // If we're in production (no localhost in API URL), ensure we use WSS
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+    if (apiUrl.includes('railway.app') && wsUrl.startsWith('ws://')) {
+      wsUrl = wsUrl.replace('ws://', 'wss://');
+    }
     
     console.log('Connecting to WebSocket:', wsUrl);
     setConnectionStatus('connecting');

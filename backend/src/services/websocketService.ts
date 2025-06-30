@@ -15,7 +15,13 @@ export class WebSocketService {
    * Initialize WebSocket server
    */
   static initialize(server: Server) {
-    this.wss = new WebSocket.Server({ server, path: '/ws' });
+    this.wss = new WebSocket.Server({ 
+      server, 
+      path: '/ws',
+      // Railway WebSocket configuration
+      perMessageDeflate: false,
+      clientTracking: true
+    });
 
     this.wss.on('connection', (ws: WebSocketClient, req) => {
       console.log('WebSocket client connected');

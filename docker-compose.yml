@@ -85,6 +85,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: production
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
     container_name: beton-ai-frontend
     env_file:
       - ./frontend/.env.local
@@ -104,6 +109,7 @@ services:
       dockerfile: Dockerfile
       target: production
     container_name: beton-ai-mock-apollo
+    command: "./setup.sh"
     environment:
       DATABASE_URL: postgresql://postgres:postgres123@mock-postgres:5432/mock_apollo
       NODE_ENV: production
