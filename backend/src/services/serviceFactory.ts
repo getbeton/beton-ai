@@ -1,8 +1,13 @@
 import { ApolloService, ApolloHealthCheck } from './apolloService';
+import { OpenAIService } from './openaiService';
+import { OpenAIHealthCheck } from '../types';
+
+// Union type for health check responses from different services
+export type ServiceHealthCheck = ApolloHealthCheck | OpenAIHealthCheck;
 
 export interface ServiceCapabilities {
   supportsValidation: boolean;
-  validateApiKey?: (apiKey: string) => Promise<ApolloHealthCheck>;
+  validateApiKey?: (apiKey: string) => Promise<ServiceHealthCheck>;
 }
 
 export class ServiceFactory {
@@ -12,7 +17,8 @@ export class ServiceFactory {
       validateApiKey: ApolloService.validateApiKey.bind(ApolloService)
     },
     openai: {
-      supportsValidation: false
+      supportsValidation: OpenAIService.supportsValidation,
+      validateApiKey: OpenAIService.validateApiKey.bind(OpenAIService)
     },
     github: {
       supportsValidation: false
@@ -37,7 +43,7 @@ export class ServiceFactory {
   /**
    * Validate an API key for a given service
    */
-  static async validateApiKey(serviceName: string, apiKey: string): Promise<ApolloHealthCheck> {
+  static async validateApiKey(serviceName: string, apiKey: string): Promise<ServiceHealthCheck> {
     const service = this.getService(serviceName);
     
     if (!service) {
@@ -73,5 +79,33 @@ export class ServiceFactory {
     return Object.keys(this.services).filter(service => 
       this.services[service].supportsValidation
     );
+  }
+
+  /**
+   * Get service-specific actions
+   */
+  static getSupportedActions(serviceName: string): string[] {
+    switch (serviceName.toLowerCase()) {
+      case 'apollo':
+        return ApolloService.getSupportedActions();
+      case 'openai':
+        return OpenAIService.getSupportedActions();
+      default:
+        return [];
+    }
+  }
+
+  /**
+   * Execute an action for a specific service
+   */
+  static async executeAction(serviceName: string, apiKey: string, action: string, payload: any) {
+    switch (serviceName.toLowerCase()) {
+      case 'apollo':
+        return ApolloService.executeAction(apiKey, action, payload);
+      case 'openai':
+        return OpenAIService.executeAction(apiKey, action, payload);
+      default:
+        throw new Error(`Service ${serviceName} does not support action execution`);
+    }
   }
 } 

@@ -42,6 +42,7 @@ interface IntegrationResponse {
   } | null;
 }
 import { ApolloService } from '../services/apolloService';
+import { OpenAIService } from '../services/openaiService';
 import { ServiceFactory } from '../services/serviceFactory';
 
 const router = express.Router();
@@ -305,7 +306,8 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     }
 
     // Perform health check for the new integration
-    if (serviceName === 'apollo') {
+    const service = ServiceFactory.getService(serviceName);
+    if (service?.supportsValidation) {
       try {
         let apiKeyToTest = '';
         
@@ -320,7 +322,8 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
         }
 
         if (apiKeyToTest) {
-          const healthCheck = await ApolloService.checkHealth(apiKeyToTest);
+          const healthCheck = await ServiceFactory.validateApiKey(serviceName, apiKeyToTest);
+            
           await prisma.integration.update({
             where: { id: integration.id },
             data: {
@@ -599,6 +602,9 @@ router.post('/:id/health-check', async (req: AuthenticatedRequest, res) => {
       case 'apollo':
         healthCheck = await ApolloService.checkHealth(apiKeyToTest);
         break;
+      case 'openai':
+        healthCheck = await OpenAIService.checkHealth(apiKeyToTest);
+        break;
       default:
         return res.status(400).json({ 
           success: false, 
@@ -721,6 +727,100 @@ router.post('/:id/apollo/people-search', async (req: AuthenticatedRequest, res) 
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Failed to perform people search' 
+    });
+  }
+});
+
+// OpenAI Text Generation endpoint
+router.post('/:id/openai/text-generation', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    const integrationId = req.params.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    // Get the integration and verify it belongs to the user
+    const integration = await prisma.integration.findFirst({
+      where: { 
+        id: integrationId,
+        userId,
+        serviceName: 'openai',
+        isActive: true
+      },
+      include: {
+        apiKeys: true,
+        platformKey: true
+      }
+    });
+
+    if (!integration) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'OpenAI integration not found or inactive' 
+      });
+    }
+
+    // Get the API key to use
+    let apiKeyToUse = '';
+    
+    if (integration.keySource === 'platform' && integration.platformKey) {
+      // Get the actual platform key (backend only)
+      const fullPlatformKey = await prisma.platformApiKey.findUnique({
+        where: { id: integration.platformKeyId! }
+      });
+      apiKeyToUse = fullPlatformKey?.apiKey || '';
+    } else if (integration.keySource === 'personal' && integration.apiKeys && integration.apiKeys.length > 0) {
+      // Get the personal API key
+      const personalKey = await prisma.apiKey.findFirst({
+        where: { 
+          integrationId: integration.id,
+          isActive: true 
+        }
+      });
+      apiKeyToUse = personalKey?.apiKey || '';
+    }
+
+    if (!apiKeyToUse) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No valid API key found for this integration' 
+      });
+    }
+
+    const request = req.body.request || {};
+    console.log('OpenAI Text Generation request:', JSON.stringify(request, null, 2));
+
+    // Use the OpenAI service to perform the text generation
+    const generationResult = await OpenAIService.generateText(apiKeyToUse, request);
+
+    // Update the integration's last used timestamp
+    await prisma.integration.update({
+      where: { id: integrationId },
+      data: { lastHealthCheck: new Date() }
+    });
+
+    // Update platform key usage count if using platform key
+    if (integration.keySource === 'platform' && integration.platformKeyId) {
+      await prisma.platformApiKey.update({
+        where: { id: integration.platformKeyId },
+        data: { usageCount: { increment: 1 } }
+      });
+    }
+
+    const response: ApiResponse = {
+      success: true,
+      data: generationResult,
+      message: `Generated ${generationResult.usage.totalTokens} tokens`
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    console.error('Error performing OpenAI text generation:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to generate text' 
     });
   }
 });

@@ -46,6 +46,57 @@ export interface PlatformApiKey {
   updatedAt: Date;
 }
 
+// OpenAI-specific types
+export interface OpenAIHealthCheck {
+  isHealthy: boolean;
+  status: 'healthy' | 'unhealthy' | 'unknown';
+  message: string;
+  responseTime?: number;
+}
+
+export interface OpenAIConfig {
+  apiKey: string;
+  baseURL?: string;
+  defaultModel: string;
+  maxTokens: number;
+  temperature: number;
+}
+
+export interface OpenAIRequest {
+  prompt: string;
+  model?: string;
+  maxTokens?: number;
+  temperature?: number;
+  systemPrompt?: string;
+}
+
+export interface OpenAIResponse {
+  content: string;
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  model: string;
+  finishReason: string;
+}
+
+export interface OpenAIUsageMetrics {
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  estimatedCost: number;
+}
+
+export interface OpenAICapabilities {
+  models: string[];
+  supportedOperations: string[];
+  rateLimits: {
+    requestsPerMinute: number;
+    tokensPerMinute: number;
+  };
+}
+
 // Request/Response types
 export interface CreateIntegrationRequest {
   serviceName: string;

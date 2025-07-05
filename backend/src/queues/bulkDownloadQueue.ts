@@ -14,11 +14,25 @@ export interface BulkDownloadJobData {
   integrationId: string;
 }
 
+// Detect if running in Docker environment
+const isDockerEnvironment = () => {
+  return process.env.NODE_ENV === 'production' || 
+         process.env.DOCKER_ENV === 'true' ||
+         process.env.RAILWAY_ENVIRONMENT === 'true' ||
+         process.env.RAILWAY_SERVICE_NAME !== undefined;
+};
+
 console.log('🔧 Initializing bulk download queue...');
+
+const isDocker = isDockerEnvironment();
+const redisHost = isDocker ? (process.env.REDIS_HOST || 'redis') : (process.env.REDIS_HOST || 'localhost');
+const redisPort = parseInt(process.env.REDIS_PORT || '6379');
+
 console.log('📡 Redis config:', {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-  url: process.env.REDIS_URL
+  host: redisHost,
+  port: redisPort,
+  url: process.env.REDIS_URL,
+  environment: isDocker ? 'Docker/Production' : 'Local Development'
 });
 
 // Prioritize REDIS_URL (IPv4) over REDIS_HOST (IPv6)
@@ -43,8 +57,8 @@ if (process.env.REDIS_URL) {
   // Use host/port with IPv4 forced
   bulkDownloadQueue = new Queue<BulkDownloadJobData>('bulk-download', {
     redis: {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
+      host: redisHost,
+      port: redisPort,
       family: 4, // Force IPv4
     },
     defaultJobOptions: {

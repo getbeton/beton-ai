@@ -42,8 +42,10 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^2.0.1",
+    "openai": "^5.8.2",
     "uuid": "^11.1.0",
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "zod": "^3.25.74"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

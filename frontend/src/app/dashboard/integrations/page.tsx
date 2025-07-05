@@ -156,7 +156,7 @@ export default function IntegrationsPage() {
       setKeyValidationResult(response.data);
       
       if (response.data.success) {
-        toast.success('API key is valid and ready to use!');
+        toast.success('API key is valid!');
       } else {
         toast.error(`Validation failed: ${response.data.message}`);
       }
@@ -184,6 +184,20 @@ export default function IntegrationsPage() {
 
     setIsSubmitting(true);
     try {
+      // First validate the key if it's a personal key
+      if (newIntegration.keySource === 'personal') {
+        const validationResponse = await apiClient.integrations.validateKey({
+          serviceName: newIntegration.serviceName,
+          apiKey: newIntegration.apiKey
+        });
+        
+        if (!validationResponse.data.success) {
+          toast.error(`API key validation failed: ${validationResponse.data.message}`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       const integrationData = {
         serviceName: newIntegration.serviceName,
         name: newIntegration.serviceName, // Use service name as the integration name
@@ -238,7 +252,9 @@ export default function IntegrationsPage() {
     try {
       const response = await apiClient.integrations.healthCheck(id);
       if (response.data.success) {
-        toast.success('Health check completed');
+        const status = response.data.data.status;
+        const message = status === 'healthy' ? 'Integration is healthy' : 'Integration is unhealthy';
+        toast.success(`Health check completed: ${message}`);
         await fetchIntegrations(); // Refresh to show updated status
       }
     } catch (error: any) {
@@ -451,7 +467,7 @@ export default function IntegrationsPage() {
                               </div>
                               
                               {/* Validation Button and Results */}
-                              {newIntegration.serviceName === 'apollo' && newIntegration.apiKey.trim() && (
+                              {(newIntegration.serviceName === 'apollo' || newIntegration.serviceName === 'openai') && newIntegration.apiKey.trim() && (
                                 <div className="space-y-2">
                                   <Button
                                     type="button"
@@ -475,35 +491,28 @@ export default function IntegrationsPage() {
                                   </Button>
                                   
                                   {keyValidationResult && (
-                                    <div className={`p-2 rounded text-xs ${
-                                      keyValidationResult.success 
-                                        ? 'bg-green-50 text-green-800 border border-green-200' 
-                                        : 'bg-red-50 text-red-800 border border-red-200'
-                                    }`}>
-                                      <div className="flex items-center space-x-2">
+                                    <Alert className={keyValidationResult.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}>
+                                      <AlertDescription className={keyValidationResult.success ? 'text-green-800' : 'text-red-800'}>
                                         {keyValidationResult.success ? (
-                                          <CheckCircle className="h-3 w-3" />
+                                          <div className="flex items-center">
+                                            <CheckCircle className="h-4 w-4 mr-2" />
+                                            {keyValidationResult.message}
+                                          </div>
                                         ) : (
-                                          <XCircle className="h-3 w-3" />
+                                          <div className="flex items-center">
+                                            <XCircle className="h-4 w-4 mr-2" />
+                                            {keyValidationResult.message}
+                                          </div>
                                         )}
-                                        <span className="font-medium">
-                                          {keyValidationResult.success ? 'Valid' : 'Invalid'}
-                                        </span>
-                                      </div>
-                                      <p className="mt-1">{keyValidationResult.message}</p>
-                                      {keyValidationResult.data?.responseTime && (
-                                        <p className="mt-1 text-xs opacity-75">
-                                          Response time: {keyValidationResult.data.responseTime}ms
-                                        </p>
-                                      )}
-                                    </div>
+                                      </AlertDescription>
+                                    </Alert>
                                   )}
                                 </div>
                               )}
                               
                               <p className="text-xs text-muted-foreground">
                                 Your API key will be securely encrypted and stored.
-                                {newIntegration.serviceName === 'apollo' && (
+                                {(newIntegration.serviceName === 'apollo' || newIntegration.serviceName === 'openai') && (
                                   <> We recommend validating your key before adding it.</>
                                 )}
                               </p>
@@ -640,6 +649,15 @@ export default function IntegrationsPage() {
                                   <DropdownMenuItem onClick={() => router.push('/dashboard/apollo-search')}>
                                     <Search className="mr-2 h-4 w-4" />
                                     People Search
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
+                              {integration.serviceName === 'openai' && integration.healthStatus === 'healthy' && (
+                                <>
+                                  <DropdownMenuItem onClick={() => router.push('/dashboard/openai-text-generation')}>
+                                    <ExternalLink className="mr-2 h-4 w-4" />
+                                    Text Generation
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                 </>

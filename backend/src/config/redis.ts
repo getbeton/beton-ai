@@ -1,16 +1,30 @@
 import Redis from 'ioredis';
 
-// Create Redis connection
+// Detect if running in Docker environment
+const isDockerEnvironment = () => {
+  // Check if we're in a Docker container by looking for common Docker indicators
+  return process.env.NODE_ENV === 'production' || 
+         process.env.DOCKER_ENV === 'true' ||
+         process.env.RAILWAY_ENVIRONMENT === 'true' ||
+         process.env.RAILWAY_SERVICE_NAME !== undefined;
+};
+
+// Create Redis connection with environment-aware configuration
 export const createRedisConnection = () => {
+  const isDocker = isDockerEnvironment();
+  
   const redisConfig = {
-    host: process.env.REDIS_HOST || 'localhost',
+    host: isDocker ? (process.env.REDIS_HOST || 'redis') : (process.env.REDIS_HOST || 'localhost'),
     port: parseInt(process.env.REDIS_PORT || '6379'),
     maxRetriesPerRequest: 3,
     retryDelayOnFailover: 100,
     lazyConnect: true,
   };
 
-  console.log('🔧 Creating Redis connection with config:', redisConfig);
+  console.log('🔧 Creating Redis connection with config:', {
+    ...redisConfig,
+    environment: isDocker ? 'Docker/Production' : 'Local Development'
+  });
 
   const redis = new Redis(redisConfig);
   

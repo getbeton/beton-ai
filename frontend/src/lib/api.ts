@@ -235,6 +235,10 @@ export const apiClient = {
     // Apollo People Search
     apolloPeopleSearch: (integrationId: string, filters: any): Promise<{ data: { success: boolean; data: any } }> => 
       api.post(`/api/integrations/${integrationId}/apollo/people-search`, { filters }),
+
+    // OpenAI Text Generation
+    openaiTextGeneration: (integrationId: string, request: { prompt: string; model?: string; maxTokens?: number; temperature?: number; systemPrompt?: string }): Promise<{ data: { success: boolean; data: any } }> => 
+      api.post(`/api/integrations/${integrationId}/openai/text-generation`, { request }),
   },
 
   // Platform API Keys endpoints (admin only)

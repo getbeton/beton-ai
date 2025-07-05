@@ -67,6 +67,8 @@ services:
       DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/beton_ai
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      DOCKER_ENV: "true"
+      NODE_ENV: production
       # Override for Docker environment - use container hostname
       MOCK_APOLLO_SERVICE_URL: http://mock-apollo:3002
     ports:
