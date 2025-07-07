@@ -96,6 +96,8 @@ export interface HealthCheckResponse {
   status: 'healthy' | 'unhealthy' | 'unknown';
   message: string;
   responseTime?: number;
+  credits?: number;
+  verifier_credits?: number;
 }
 
 // Table Management Types
@@ -239,6 +241,59 @@ export const apiClient = {
     // OpenAI Text Generation
     openaiTextGeneration: (integrationId: string, request: { prompt: string; model?: string; maxTokens?: number; temperature?: number; systemPrompt?: string }): Promise<{ data: { success: boolean; data: any } }> => 
       api.post(`/api/integrations/${integrationId}/openai/text-generation`, { request }),
+
+    // LeadMagic Email Finder
+    leadmagicFindEmail: (integrationId: string, request: { firstName: string; lastName: string; domain?: string; companyName?: string }): Promise<{ data: { success: boolean; data: any } }> => 
+      api.post(`/api/integrations/${integrationId}/leadmagic/find-email`, request),
+
+    // Findymail Email Finder
+    findymailFindEmail: async (integrationId: string, params: { name: string; domain: string }) => {
+      // Get auth token manually for fetch request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`/api/integrations/${integrationId}/findymail/find-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(params),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to find email');
+      }
+
+      return response.json();
+    },
+
+    // Findymail Health Check
+    findymailHealthCheck: async (integrationId: string) => {
+      // Get auth token manually for fetch request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(`/api/integrations/${integrationId}/findymail/health-check`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Health check failed');
+      }
+
+      return response.json();
+    },
   },
 
   // Platform API Keys endpoints (admin only)

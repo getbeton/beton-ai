@@ -58,6 +58,33 @@ import { Textarea } from '@/components/ui/textarea';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation';
 
+const AVAILABLE_SERVICES = [
+  {
+    id: 'apollo',
+    name: 'Apollo',
+    description: 'Access Apollo.io data and features',
+    icon: '🚀'
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    description: 'Integrate with OpenAI services',
+    icon: '🤖'
+  },
+  {
+    id: 'leadmagic',
+    name: 'LeadMagic',
+    description: 'Find business emails and contacts',
+    icon: '✨'
+  },
+  {
+    id: 'findymail',
+    name: 'Findymail',
+    description: 'Find email addresses by name and domain',
+    icon: '📧'
+  }
+];
+
 export default function IntegrationsPage() {
   const [user, setUser] = useState<any>(null);
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -156,7 +183,14 @@ export default function IntegrationsPage() {
       setKeyValidationResult(response.data);
       
       if (response.data.success) {
-        toast.success('API key is valid!');
+        let message = 'API key is valid!';
+        
+        // Add credits information for Findymail
+        if (newIntegration.serviceName === 'findymail' && response.data.data?.credits !== undefined) {
+          message += ` (Credits: ${response.data.data.credits}, Verifier Credits: ${response.data.data.verifier_credits})`;
+        }
+        
+        toast.success(message);
       } else {
         toast.error(`Validation failed: ${response.data.message}`);
       }
@@ -252,9 +286,16 @@ export default function IntegrationsPage() {
     try {
       const response = await apiClient.integrations.healthCheck(id);
       if (response.data.success) {
-        const status = response.data.data.status;
-        const message = status === 'healthy' ? 'Integration is healthy' : 'Integration is unhealthy';
-        toast.success(`Health check completed: ${message}`);
+        const { status, message, credits, verifier_credits } = response.data.data;
+        let toastMessage = status === 'healthy' ? 'Integration is healthy' : 'Integration is unhealthy';
+        
+        // Add credits information for Findymail
+        const integration = integrations.find(i => i.id === id);
+        if (integration?.serviceName === 'findymail' && credits !== undefined) {
+          toastMessage += ` (Credits: ${credits}, Verifier Credits: ${verifier_credits})`;
+        }
+        
+        toast.success(`Health check completed: ${toastMessage}`);
         await fetchIntegrations(); // Refresh to show updated status
       }
     } catch (error: any) {
@@ -413,7 +454,7 @@ export default function IntegrationsPage() {
                             <SelectItem value="apollo">Apollo</SelectItem>
                             <SelectItem value="openai">OpenAI</SelectItem>
                             <SelectItem value="leadmagic">LeadMagic</SelectItem>
-                            <SelectItem value="github">GitHub</SelectItem>
+                            <SelectItem value="findymail">Findymail</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

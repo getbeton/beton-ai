@@ -1,10 +1,12 @@
 import { ApolloService, ApolloHealthCheck } from './apolloService';
 import { OpenAIService } from './openaiService';
 import { LeadMagicService } from './leadmagicService';
+import { FindymailService } from './findymailService';
 import { OpenAIHealthCheck, LeadMagicHealthCheck } from '../types';
+import { FindymailHealthCheck } from './findymailService';
 
 // Union type for health check responses from different services
-export type ServiceHealthCheck = ApolloHealthCheck | OpenAIHealthCheck | LeadMagicHealthCheck;
+export type ServiceHealthCheck = ApolloHealthCheck | OpenAIHealthCheck | LeadMagicHealthCheck | FindymailHealthCheck;
 
 export interface ServiceCapabilities {
   supportsValidation: boolean;
@@ -24,6 +26,10 @@ export class ServiceFactory {
     leadmagic: {
       supportsValidation: LeadMagicService.supportsValidation,
       validateApiKey: LeadMagicService.validateApiKey.bind(LeadMagicService)
+    },
+    findymail: {
+      supportsValidation: FindymailService.supportsValidation,
+      validateApiKey: FindymailService.validateApiKey.bind(FindymailService)
     },
     github: {
       supportsValidation: false
@@ -97,6 +103,8 @@ export class ServiceFactory {
         return OpenAIService.getSupportedActions();
       case 'leadmagic':
         return LeadMagicService.getSupportedActions();
+      case 'findymail':
+        return FindymailService.getSupportedActions();
       default:
         return [];
     }
@@ -113,6 +121,8 @@ export class ServiceFactory {
         return OpenAIService.executeAction(apiKey, action, payload);
       case 'leadmagic':
         return LeadMagicService.executeAction(apiKey, action, payload);
+      case 'findymail':
+        return FindymailService.executeAction(apiKey, action, payload);
       default:
         throw new Error(`Service ${serviceName} does not support action execution`);
     }

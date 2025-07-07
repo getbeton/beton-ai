@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { apiClient, leadmagicApi, type Integration } from '@/lib/api';
+import { apiClient, Integration } from '@/lib/api';
 import { 
   Search,
   Send, 
@@ -13,7 +13,8 @@ import {
   Mail,
   AlertCircle,
   Building,
-  User
+  User,
+  CheckCircle
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { copyToClipboard } from '@/lib/utils';
@@ -27,6 +28,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import MainNavigation from '@/components/navigation/MainNavigation';
 import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface EmailFinderRequest {
   firstName: string;
@@ -53,20 +55,16 @@ interface EmailFinderResponse {
 
 export default function LeadMagicEmailFinderPage() {
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<any>(null);
   const [leadmagicIntegrations, setLeadmagicIntegrations] = useState<Integration[]>([]);
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [searching, setSearching] = useState(false);
-  const [result, setResult] = useState<EmailFinderResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [domain, setDomain] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const router = useRouter();
-
-  const [request, setRequest] = useState<EmailFinderRequest>({
-    firstName: '',
-    lastName: '',
-    domain: '',
-    companyName: ''
-  });
 
   useEffect(() => {
     const checkUser = async () => {
@@ -77,12 +75,10 @@ export default function LeadMagicEmailFinderPage() {
           return;
         }
         setUser(session.user);
-        await fetchLeadMagicIntegrations();
+        await fetchLeadmagicIntegrations();
       } catch (error) {
         console.error('Error checking user session:', error);
         router.push('/auth');
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -99,7 +95,7 @@ export default function LeadMagicEmailFinderPage() {
     return () => subscription.unsubscribe();
   }, [router]);
 
-  const fetchLeadMagicIntegrations = async () => {
+  const fetchLeadmagicIntegrations = async () => {
     try {
       const response = await apiClient.integrations.list();
       if (response.data.success) {
@@ -119,44 +115,37 @@ export default function LeadMagicEmailFinderPage() {
     }
   };
 
-  const handleSearch = async () => {
-    if (!selectedIntegration) {
-      toast.error('Please set up a LeadMagic integration first');
-      return;
-    }
-
-    if (!request.firstName || !request.lastName) {
-      toast.error('First name and last name are required');
-      return;
-    }
-
-    if (!request.domain && !request.companyName) {
-      toast.error('Either domain or company name is required');
-      return;
-    }
-
-    setSearching(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
     setError(null);
     setResult(null);
 
+    if (!selectedIntegration) {
+      toast.error('Please select a LeadMagic integration first');
+      setLoading(false);
+      return;
+    }
+
+    const request = {
+      firstName,
+      lastName,
+      ...(domain ? { domain } : {}),
+      ...(companyName ? { companyName } : {})
+    };
+
     try {
-      // Get API key from integration
-      const apiKey = selectedIntegration.apiKeys?.[0]?.apiKey || '';
-      
-      const response = await leadmagicApi.findEmail(apiKey, request);
+      const response = await apiClient.integrations.leadmagicFindEmail(selectedIntegration.id, request);
       if (response.data.success) {
         setResult(response.data.data);
         toast.success('Email found successfully!');
-      } else {
-        toast.error('Failed to find email');
       }
     } catch (error: any) {
       console.error('Error finding email:', error);
-      const errorMessage = error.response?.data?.error || 'An error occurred while searching for email';
-      setError(errorMessage);
-      toast.error(errorMessage);
+      setError(error.response?.data?.error || 'Failed to find email');
+      toast.error(error.response?.data?.error || 'Failed to find email');
     } finally {
-      setSearching(false);
+      setLoading(false);
     }
   };
 
@@ -166,17 +155,6 @@ export default function LeadMagicEmailFinderPage() {
       toast.success('Email copied to clipboard');
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-gray-50">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50">
@@ -239,15 +217,42 @@ export default function LeadMagicEmailFinderPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="integration">LeadMagic Integration</Label>
+                    <Select
+                      value={selectedIntegration?.id}
+                      onValueChange={(value) => {
+                        const integration = leadmagicIntegrations.find(i => i.id === value);
+                        setSelectedIntegration(integration || null);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an integration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {leadmagicIntegrations.map((integration) => (
+                          <SelectItem key={integration.id} value={integration.id}>
+                            <div className="flex items-center justify-between w-full">
+                              <span>{integration.name}</span>
+                              <Badge variant="outline" className="ml-2">
+                                {integration.healthStatus}
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="grid gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="firstName">First Name</Label>
                       <Input
                         id="firstName"
                         placeholder="John"
-                        value={request.firstName}
-                        onChange={(e) => setRequest({ ...request, firstName: e.target.value })}
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
                       />
                     </div>
                     <div className="grid gap-2">
@@ -255,8 +260,8 @@ export default function LeadMagicEmailFinderPage() {
                       <Input
                         id="lastName"
                         placeholder="Doe"
-                        value={request.lastName}
-                        onChange={(e) => setRequest({ ...request, lastName: e.target.value })}
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
                       />
                     </div>
                     <Separator />
@@ -265,8 +270,8 @@ export default function LeadMagicEmailFinderPage() {
                       <Input
                         id="domain"
                         placeholder="company.com"
-                        value={request.domain}
-                        onChange={(e) => setRequest({ ...request, domain: e.target.value })}
+                        value={domain}
+                        onChange={(e) => setDomain(e.target.value)}
                       />
                       <p className="text-sm text-muted-foreground">
                         Enter either domain or company name
@@ -277,8 +282,8 @@ export default function LeadMagicEmailFinderPage() {
                       <Input
                         id="companyName"
                         placeholder="Company Inc."
-                        value={request.companyName}
-                        onChange={(e) => setRequest({ ...request, companyName: e.target.value })}
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
                       />
                     </div>
                   </div>
@@ -286,9 +291,9 @@ export default function LeadMagicEmailFinderPage() {
                   <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={searching}
+                    disabled={loading}
                   >
-                    {searching ? (
+                    {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Searching...

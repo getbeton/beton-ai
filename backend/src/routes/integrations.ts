@@ -44,6 +44,7 @@ interface IntegrationResponse {
 import { ApolloService } from '../services/apolloService';
 import { OpenAIService } from '../services/openaiService';
 import { ServiceFactory } from '../services/serviceFactory';
+import { FindymailService } from '../services/findymailService';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -605,6 +606,9 @@ router.post('/:id/health-check', async (req: AuthenticatedRequest, res) => {
       case 'openai':
         healthCheck = await OpenAIService.checkHealth(apiKeyToTest);
         break;
+      case 'findymail':
+        healthCheck = await FindymailService.checkHealth(apiKeyToTest);
+        break;
       default:
         return res.status(400).json({ 
           success: false, 
@@ -817,10 +821,148 @@ router.post('/:id/openai/text-generation', async (req: AuthenticatedRequest, res
 
     res.json(response);
   } catch (error: any) {
-    console.error('Error performing OpenAI text generation:', error);
+    console.error('Error generating text:', error);
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Failed to generate text' 
+    });
+  }
+});
+
+// LeadMagic Email Finder endpoint
+router.post('/:id/leadmagic/find-email', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    const integrationId = req.params.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    // Get the integration and verify it belongs to the user
+    const integration = await prisma.integration.findFirst({
+      where: { 
+        id: integrationId,
+        userId,
+        serviceName: 'leadmagic',
+        isActive: true
+      },
+      include: {
+        apiKeys: true,
+        platformKey: true
+      }
+    });
+
+    if (!integration) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'LeadMagic integration not found or inactive' 
+      });
+    }
+
+    // Get the API key to use
+    let apiKeyToUse = '';
+    
+    if (integration.keySource === 'platform' && integration.platformKey) {
+      // Get the actual platform key (backend only)
+      const fullPlatformKey = await prisma.platformApiKey.findUnique({
+        where: { id: integration.platformKeyId! }
+      });
+      apiKeyToUse = fullPlatformKey?.apiKey || '';
+    } else if (integration.keySource === 'personal' && integration.apiKeys && integration.apiKeys.length > 0) {
+      // Get the personal API key
+      const personalKey = await prisma.apiKey.findFirst({
+        where: { 
+          integrationId: integration.id,
+          isActive: true 
+        }
+      });
+      apiKeyToUse = personalKey?.apiKey || '';
+    }
+
+    if (!apiKeyToUse) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No valid API key found for this integration' 
+      });
+    }
+
+    const request = req.body;
+    console.log('LeadMagic Email Finder request:', JSON.stringify(request, null, 2));
+
+    // Use the LeadMagic service to find the email
+    const result = await ServiceFactory.executeAction('leadmagic', apiKeyToUse, 'findEmail', request);
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error: any) {
+    console.error('Error finding email:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to find email' 
+    });
+  }
+});
+
+// Findymail routes
+router.post('/:id/findymail/find-email', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const { id } = req.params;
+    const { name, domain } = req.body;
+
+    if (!name || !domain) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Name and domain are required' 
+      });
+    }
+
+    const integration = await prisma.integration.findFirst({
+      where: { 
+        id,
+        userId,
+        serviceName: 'findymail'
+      },
+      include: {
+        apiKeys: true
+      }
+    });
+
+    if (!integration || !integration.apiKeys?.[0]?.apiKey) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Integration or API key not found' 
+      });
+    }
+
+    const result = await ServiceFactory.executeAction('findymail', integration.apiKeys[0].apiKey, 'findEmailByName', {
+      name,
+      domain
+    });
+
+    if (!result.success) {
+      return res.status(400).json({ 
+        success: false, 
+        error: result.error 
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error: any) {
+    console.error('Error in findymail find-email:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Internal server error' 
     });
   }
 });
