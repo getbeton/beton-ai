@@ -412,6 +412,7 @@ export default function IntegrationsPage() {
                           <SelectContent>
                             <SelectItem value="apollo">Apollo</SelectItem>
                             <SelectItem value="openai">OpenAI</SelectItem>
+                            <SelectItem value="leadmagic">LeadMagic</SelectItem>
                             <SelectItem value="github">GitHub</SelectItem>
                           </SelectContent>
                         </Select>
@@ -467,7 +468,7 @@ export default function IntegrationsPage() {
                               </div>
                               
                               {/* Validation Button and Results */}
-                              {(newIntegration.serviceName === 'apollo' || newIntegration.serviceName === 'openai') && newIntegration.apiKey.trim() && (
+                              {(newIntegration.serviceName === 'apollo' || newIntegration.serviceName === 'openai' || newIntegration.serviceName === 'leadmagic') && newIntegration.apiKey.trim() && (
                                 <div className="space-y-2">
                                   <Button
                                     type="button"
@@ -512,7 +513,7 @@ export default function IntegrationsPage() {
                               
                               <p className="text-xs text-muted-foreground">
                                 Your API key will be securely encrypted and stored.
-                                {(newIntegration.serviceName === 'apollo' || newIntegration.serviceName === 'openai') && (
+                                {(newIntegration.serviceName === 'apollo' || newIntegration.serviceName === 'openai' || newIntegration.serviceName === 'leadmagic') && (
                                   <> We recommend validating your key before adding it.</>
                                 )}
                               </p>
@@ -658,6 +659,15 @@ export default function IntegrationsPage() {
                                   <DropdownMenuItem onClick={() => router.push('/dashboard/openai-text-generation')}>
                                     <ExternalLink className="mr-2 h-4 w-4" />
                                     Text Generation
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
+                              {integration.serviceName === 'leadmagic' && integration.healthStatus === 'healthy' && (
+                                <>
+                                  <DropdownMenuItem onClick={() => router.push('/dashboard/leadmagic-email-finder')}>
+                                    <Search className="mr-2 h-4 w-4" />
+                                    Email Finder
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                 </>

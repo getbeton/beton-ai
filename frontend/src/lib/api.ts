@@ -390,4 +390,28 @@ export const apiClient = {
   },
 };
 
+// LeadMagic API endpoints
+export const leadmagicApi = {
+  checkHealth: async (apiKey: string): Promise<{ data: { success: boolean; data: HealthCheckResponse } }> => {
+    return api.get('/api/leadmagic/health', {
+      headers: {
+        'X-LeadMagic-API-Key': apiKey
+      }
+    });
+  },
+
+  findEmail: async (apiKey: string, data: {
+    firstName: string;
+    lastName: string;
+    domain?: string;
+    companyName?: string;
+  }): Promise<{ data: { success: boolean; data: any } }> => {
+    return api.post('/api/leadmagic/find-email', data, {
+      headers: {
+        'X-LeadMagic-API-Key': apiKey
+      }
+    });
+  }
+};
+
 export default api; 

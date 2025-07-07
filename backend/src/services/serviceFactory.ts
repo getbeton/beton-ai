@@ -1,9 +1,10 @@
 import { ApolloService, ApolloHealthCheck } from './apolloService';
 import { OpenAIService } from './openaiService';
-import { OpenAIHealthCheck } from '../types';
+import { LeadMagicService } from './leadmagicService';
+import { OpenAIHealthCheck, LeadMagicHealthCheck } from '../types';
 
 // Union type for health check responses from different services
-export type ServiceHealthCheck = ApolloHealthCheck | OpenAIHealthCheck;
+export type ServiceHealthCheck = ApolloHealthCheck | OpenAIHealthCheck | LeadMagicHealthCheck;
 
 export interface ServiceCapabilities {
   supportsValidation: boolean;
@@ -19,6 +20,10 @@ export class ServiceFactory {
     openai: {
       supportsValidation: OpenAIService.supportsValidation,
       validateApiKey: OpenAIService.validateApiKey.bind(OpenAIService)
+    },
+    leadmagic: {
+      supportsValidation: LeadMagicService.supportsValidation,
+      validateApiKey: LeadMagicService.validateApiKey.bind(LeadMagicService)
     },
     github: {
       supportsValidation: false
@@ -90,6 +95,8 @@ export class ServiceFactory {
         return ApolloService.getSupportedActions();
       case 'openai':
         return OpenAIService.getSupportedActions();
+      case 'leadmagic':
+        return LeadMagicService.getSupportedActions();
       default:
         return [];
     }
@@ -104,6 +111,8 @@ export class ServiceFactory {
         return ApolloService.executeAction(apiKey, action, payload);
       case 'openai':
         return OpenAIService.executeAction(apiKey, action, payload);
+      case 'leadmagic':
+        return LeadMagicService.executeAction(apiKey, action, payload);
       default:
         throw new Error(`Service ${serviceName} does not support action execution`);
     }

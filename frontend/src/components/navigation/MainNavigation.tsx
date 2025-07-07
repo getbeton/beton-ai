@@ -7,7 +7,8 @@ import {
   Search, 
   BarChart3, 
   Settings,
-  Zap
+  Zap,
+  Mail
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,12 @@ const navigationItems: NavigationItem[] = [
     href: '/dashboard/apollo-search',
     icon: Search,
     description: 'Search prospect data',
+  },
+  {
+    name: 'Email Finder',
+    href: '/dashboard/leadmagic-email-finder',
+    icon: Mail,
+    description: 'Find business email addresses',
   },
   {
     name: 'Jobs',

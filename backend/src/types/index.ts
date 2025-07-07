@@ -177,4 +177,56 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
     total: number;
     totalPages: number;
   };
+}
+
+export interface LeadMagicHealthCheck {
+  isHealthy: boolean;
+  status: string;
+  message: string;
+  creditsRemaining?: number;
+  responseTime?: number;
+}
+
+export interface LeadMagicEmailFinderRequest {
+  firstName: string;
+  lastName: string;
+  domain?: string;
+  companyName?: string;
+}
+
+export interface LeadMagicCompanyLocation {
+  name: string;
+  locality: string;
+  region: string;
+  metro: string;
+  country: string;
+  continent: string;
+  streetAddress: string;
+  addressLine2?: string;
+  postalCode: string;
+  geo: string;
+}
+
+export interface LeadMagicEmailFinderResponse {
+  email: string;
+  status: string;
+  creditsConsumed: number;
+  message: string;
+  firstName: string;
+  lastName: string;
+  domain: string;
+  isDomainCatchAll: boolean;
+  mxRecord: string;
+  mxProvider: string;
+  mxSecurityGateway: boolean;
+  companyName: string;
+  companyIndustry: string;
+  companySize: string;
+  companyFounded: number;
+  companyLocation: LeadMagicCompanyLocation;
+  companyLinkedinUrl: string;
+  companyLinkedinId: string;
+  companyFacebookUrl: string;
+  companyTwitterUrl: string;
+  companyType: string;
 } 

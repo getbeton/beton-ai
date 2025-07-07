@@ -11,6 +11,7 @@ import platformKeysRouter from './routes/platformKeys';
 import tablesRouter from './routes/tables';
 import bulkDownloadRouter from './routes/bulkDownload';
 import apolloConfigRouter from './routes/apolloConfig';
+import leadmagicRouter from './routes/leadmagic';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 import { WebSocketService } from './services/websocketService';
@@ -70,6 +71,7 @@ app.use('/api/platform-keys', authMiddleware, platformKeysRouter);
 app.use('/api/tables', authMiddleware, tablesRouter);
 app.use('/api/bulk-download', authMiddleware, bulkDownloadRouter);
 app.use('/api/apollo', authMiddleware, apolloConfigRouter);
+app.use('/api/leadmagic', authMiddleware, leadmagicRouter);
 
 // Test endpoint for JWT authentication status
 app.get('/api/auth/test', authMiddleware, (req: any, res) => {
