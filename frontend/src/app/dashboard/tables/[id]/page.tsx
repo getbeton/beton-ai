@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import Head from 'next/head';
 import { supabase } from '@/lib/supabase';
 import { apiClient, type UserTable, type TableColumn, type CreateColumnRequest, type Integration } from '@/lib/api';
+import { TableCellRenderer } from '@/components/tables/TableCellRenderer';
+import { useAiTaskCells } from '@/hooks/useAiTaskCells';
 import { 
   Plus,
   Table as TableIcon,
@@ -185,6 +187,16 @@ export default function TableViewPage() {
   const [executionIntegrationId, setExecutionIntegrationId] = useState<string>('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionJobId, setExecutionJobId] = useState<string | null>(null);
+  
+  // AI Task cells hook for real-time updates
+  const aiTaskCells = useAiTaskCells({
+    userId: user?.id,
+    onCellUpdate: (cellId, value) => {
+      console.log(`Cell ${cellId} updated with value:`, value);
+      // Optionally refresh table data
+      fetchTable();
+    }
+  });
   
   // Form states
   const [newColumn, setNewColumn] = useState<CreateColumnRequest>({
