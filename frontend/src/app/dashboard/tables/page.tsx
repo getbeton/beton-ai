@@ -60,7 +60,8 @@ const COLUMN_TYPES = [
   { value: 'date', label: 'Date', description: 'Date and time values' },
   { value: 'url', label: 'URL', description: 'Web links' },
   { value: 'email', label: 'Email', description: 'Email addresses' },
-  { value: 'checkbox', label: 'Checkbox', description: 'True/false values' }
+  { value: 'checkbox', label: 'Checkbox', description: 'True/false values' },
+  { value: 'ai_task', label: 'AI Task', description: 'AI-generated content' }
 ];
 
 const TABLE_TEMPLATES = [

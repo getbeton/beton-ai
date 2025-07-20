@@ -21,7 +21,8 @@ export const COLUMN_TYPES = {
   DATE: 'date',
   URL: 'url',
   EMAIL: 'email',
-  CHECKBOX: 'checkbox'
+  CHECKBOX: 'checkbox',
+  AI_TASK: 'ai_task'
 } as const;
 
 export type ColumnType = typeof COLUMN_TYPES[keyof typeof COLUMN_TYPES];
@@ -96,6 +97,7 @@ const formatCellValue = (value: any, columnType: ColumnType): string | null => {
     case COLUMN_TYPES.TEXT:
     case COLUMN_TYPES.EMAIL:
     case COLUMN_TYPES.URL:
+    case COLUMN_TYPES.AI_TASK:
       return String(value);
     case COLUMN_TYPES.NUMBER:
     case COLUMN_TYPES.CURRENCY:
@@ -742,8 +744,8 @@ router.post('/:id/columns', async (req: AuthenticatedRequest, res) => {
       }
     });
 
-    // Add default values to existing rows
-    if (defaultValue) {
+    // Add default values to existing rows or create empty cells for AI task columns
+    if (defaultValue || type === 'ai_task') {
       const rows = await prisma.tableRow.findMany({
         where: { tableId: id }
       });
@@ -754,7 +756,7 @@ router.post('/:id/columns', async (req: AuthenticatedRequest, res) => {
             data: {
               rowId: row.id,
               columnId: column.id,
-              value: formatCellValue(defaultValue, type)
+              value: defaultValue ? formatCellValue(defaultValue, type) : ''
             }
           })
         )

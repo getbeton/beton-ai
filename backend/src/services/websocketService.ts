@@ -2,6 +2,33 @@ import { Server } from 'http';
 import WebSocket from 'ws';
 import { BulkDownloadJobInfo } from './bulkDownloadService';
 
+// Generic job info interface that can handle different job types
+export interface GenericJobInfo {
+  id: string;
+  type?: 'bulk_download' | 'ai_task';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  progress?: {
+    // Bulk download progress
+    currentPage?: number;
+    totalPages?: number;
+    processedRecords?: number;
+    totalEstimated?: number;
+    // AI task progress
+    completed?: number;
+    failed?: number;
+    total?: number;
+    // Common
+    percentage: number;
+  };
+  message?: string;
+  createdAt?: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  error?: string;
+}
+
+export type JobInfo = BulkDownloadJobInfo | GenericJobInfo;
+
 interface WebSocketClient extends WebSocket {
   userId?: string;
   isAlive?: boolean;
@@ -112,7 +139,7 @@ export class WebSocketService {
   /**
    * Send job progress update to user
    */
-  static sendJobProgress(userId: string, jobInfo: BulkDownloadJobInfo) {
+  static sendJobProgress(userId: string, jobInfo: JobInfo) {
     const userClients = this.clients.get(userId);
     if (!userClients || userClients.size === 0) {
       return; // No clients connected for this user
@@ -140,7 +167,7 @@ export class WebSocketService {
   /**
    * Send job completion notification
    */
-  static sendJobComplete(userId: string, jobInfo: BulkDownloadJobInfo) {
+  static sendJobComplete(userId: string, jobInfo: JobInfo) {
     const userClients = this.clients.get(userId);
     if (!userClients || userClients.size === 0) {
       return;
@@ -168,9 +195,10 @@ export class WebSocketService {
   /**
    * Send job failure notification
    */
-  static sendJobFailed(userId: string, jobInfo: BulkDownloadJobInfo) {
+  static sendJobFailed(userId: string, jobInfo: JobInfo) {
     const userClients = this.clients.get(userId);
     if (!userClients || userClients.size === 0) {
+      console.log(`No clients found for user ${userId}`);
       return;
     }
 
@@ -179,18 +207,37 @@ export class WebSocketService {
       data: jobInfo
     });
 
-    userClients.forEach((client) => {
+    userClients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
-        try {
-          client.send(message);
-        } catch (error) {
-          console.error('Error sending WebSocket message:', error);
-          this.removeClient(client);
-        }
-      } else {
-        this.removeClient(client);
+        client.send(message);
       }
     });
+
+    console.log(`❌ Sent job failure to user ${userId}:`, jobInfo.id, jobInfo.error);
+  }
+
+  /**
+   * Send real-time cell update notification
+   */
+  static sendCellUpdate(userId: string, cellUpdate: { cellId: string; value: string; timestamp: string }) {
+    const userClients = this.clients.get(userId);
+    if (!userClients || userClients.size === 0) {
+      console.log(`No clients found for user ${userId} for cell update`);
+      return;
+    }
+
+    const message = JSON.stringify({
+      type: 'cell_update',
+      data: cellUpdate
+    });
+
+    userClients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+
+    console.log(`📱 Sent cell update to user ${userId}:`, cellUpdate.cellId);
   }
 
   /**

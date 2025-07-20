@@ -12,10 +12,12 @@ import tablesRouter from './routes/tables';
 import bulkDownloadRouter from './routes/bulkDownload';
 import apolloConfigRouter from './routes/apolloConfig';
 import leadmagicRouter from './routes/leadmagic';
+import aiTasksRouter from './routes/aiTasks';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 import { WebSocketService } from './services/websocketService';
 import './queues/bulkDownloadQueue'; // Initialize the queue
+import './queues/aiTaskQueue'; // Initialize the AI task queue
 
 dotenv.config();
 
@@ -72,6 +74,7 @@ app.use('/api/tables', authMiddleware, tablesRouter);
 app.use('/api/bulk-download', authMiddleware, bulkDownloadRouter);
 app.use('/api/apollo', authMiddleware, apolloConfigRouter);
 app.use('/api/leadmagic', authMiddleware, leadmagicRouter);
+app.use('/api/ai-tasks', authMiddleware, aiTasksRouter);
 
 // Test endpoint for JWT authentication status
 app.get('/api/auth/test', authMiddleware, (req: any, res) => {

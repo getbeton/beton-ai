@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Head from 'next/head';
 import { supabase } from '@/lib/supabase';
-import { apiClient, type UserTable, type TableColumn, type CreateColumnRequest } from '@/lib/api';
+import { apiClient, type UserTable, type TableColumn, type CreateColumnRequest, type Integration } from '@/lib/api';
 import { 
   Plus,
   Table as TableIcon,
@@ -40,6 +40,7 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Dialog, 
   DialogContent, 
@@ -72,7 +73,8 @@ const COLUMN_TYPES = [
   { value: 'date', label: 'Date', icon: '📅' },
   { value: 'url', label: 'URL', icon: '🔗' },
   { value: 'email', label: 'Email', icon: '📧' },
-  { value: 'checkbox', label: 'Checkbox', icon: '☑️' }
+  { value: 'checkbox', label: 'Checkbox', icon: '☑️' },
+  { value: 'ai_task', label: 'AI Task', icon: '🤖' }
 ];
 
 const FILTER_CONDITIONS = {
@@ -173,6 +175,16 @@ export default function TableViewPage() {
   
   // Dialog states
   const [isAddColumnDialogOpen, setIsAddColumnDialogOpen] = useState(false);
+  const [isEditColumnDialogOpen, setIsEditColumnDialogOpen] = useState(false);
+  const [editingColumn, setEditingColumn] = useState<TableColumn | null>(null);
+  
+  // AI Task execution states
+  const [isExecuteAiTaskDialogOpen, setIsExecuteAiTaskDialogOpen] = useState(false);
+  const [executingColumn, setExecutingColumn] = useState<TableColumn | null>(null);
+  const [executionScope, setExecutionScope] = useState<'column' | 'selected_rows' | 'single_row' | 'single_cell'>('column');
+  const [executionIntegrationId, setExecutionIntegrationId] = useState<string>('');
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionJobId, setExecutionJobId] = useState<string | null>(null);
   
   // Form states
   const [newColumn, setNewColumn] = useState<CreateColumnRequest>({
@@ -183,6 +195,11 @@ export default function TableViewPage() {
     defaultValue: '',
     settings: {}
   });
+  
+  // AI Task specific states
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [availableVariables, setAvailableVariables] = useState<string[]>([]);
+  const [loadingIntegrations, setLoadingIntegrations] = useState(false);
   
   const [isLoading, setIsLoading] = useState(false);
 
@@ -206,6 +223,36 @@ export default function TableViewPage() {
 
     checkUser();
   }, [router, tableId]);
+
+  // Fetch integrations and variables when dialog opens
+  useEffect(() => {
+    if (isAddColumnDialogOpen || isEditColumnDialogOpen) {
+      fetchIntegrations();
+      fetchAvailableVariables();
+    }
+  }, [isAddColumnDialogOpen, isEditColumnDialogOpen]);
+
+  // Reset AI task settings when column type changes
+  useEffect(() => {
+    if (newColumn.type !== 'ai_task') {
+      setNewColumn(prev => ({
+        ...prev,
+        settings: {}
+      }));
+    } else {
+      // Initialize AI task settings
+      setNewColumn(prev => ({
+        ...prev,
+        settings: {
+          aiTask: {
+            prompt: '',
+            useCase: 'content_creation',
+            modelConfig: {}
+          }
+        }
+      }));
+    }
+  }, [newColumn.type]);
 
   // Debounce search query
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
@@ -277,10 +324,67 @@ export default function TableViewPage() {
     }
   };
 
+  const fetchIntegrations = async () => {
+    setLoadingIntegrations(true);
+    try {
+      const response = await apiClient.integrations.list();
+      if (response.data.success) {
+        // Filter for active LLM integrations (OpenAI, etc.)
+        const llmIntegrations = response.data.data.filter(
+          (integration: Integration) => 
+            integration.isActive && 
+            ['openai'].includes(integration.serviceName)
+        );
+        setIntegrations(llmIntegrations);
+      }
+    } catch (error) {
+      console.error('Error fetching integrations:', error);
+      toast.error('Failed to load integrations');
+    } finally {
+      setLoadingIntegrations(false);
+    }
+  };
+
+  const fetchAvailableVariables = async () => {
+    try {
+      const response = await apiClient.aiTasks.getAvailableVariables(tableId);
+      if (response.data.success) {
+        setAvailableVariables(response.data.data.variables);
+      }
+    } catch (error) {
+      console.error('Error fetching available variables:', error);
+    }
+  };
+
+  const handleOpenEditColumn = (column: TableColumn) => {
+    setEditingColumn(column);
+    setNewColumn({
+      name: column.name,
+      type: column.type as any,
+      isRequired: column.isRequired,
+      isEditable: column.isEditable,
+      defaultValue: column.defaultValue || '',
+      settings: column.settings || {}
+    });
+    setIsEditColumnDialogOpen(true);
+  };
+
   const handleAddColumn = async () => {
     if (!newColumn.name.trim()) {
       toast.error('Column name is required');
       return;
+    }
+
+    // Validate AI task configuration
+    if (newColumn.type === 'ai_task') {
+      if (!newColumn.settings?.aiTask?.prompt?.trim()) {
+        toast.error('Prompt is required for AI task columns');
+        return;
+      }
+      if (!newColumn.settings?.aiTask?.useCase) {
+        toast.error('Use case is required for AI task columns');
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -304,6 +408,130 @@ export default function TableViewPage() {
       toast.error(error.response?.data?.error || 'Failed to add column');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleEditColumn = async () => {
+    if (!editingColumn || !newColumn.name.trim()) {
+      toast.error('Column name is required');
+      return;
+    }
+
+    // Validate AI task configuration
+    if (newColumn.type === 'ai_task') {
+      if (!newColumn.settings?.aiTask?.prompt?.trim()) {
+        toast.error('Prompt is required for AI task columns');
+        return;
+      }
+      if (!newColumn.settings?.aiTask?.useCase) {
+        toast.error('Use case is required for AI task columns');
+        return;
+      }
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await apiClient.tables.updateColumn(tableId, editingColumn.id, newColumn);
+      if (response.data.success) {
+        toast.success('Column updated successfully');
+        setIsEditColumnDialogOpen(false);
+        setEditingColumn(null);
+        setNewColumn({
+          name: '',
+          type: 'text',
+          isRequired: false,
+          isEditable: true,
+          defaultValue: '',
+          settings: {}
+        });
+        await fetchTable();
+      }
+    } catch (error: any) {
+      console.error('Error updating column:', error);
+      toast.error(error.response?.data?.error || 'Failed to update column');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOpenAiTaskExecution = (column: TableColumn, scope: 'column' | 'selected_rows' | 'single_row' | 'single_cell' = 'column') => {
+    if (column.type !== 'ai_task') return;
+    
+    setExecutingColumn(column);
+    setExecutionScope(scope);
+    
+    // Set default integration if configured in column
+    const defaultIntegration = column.settings?.aiTask?.integrationId;
+    setExecutionIntegrationId(defaultIntegration || (integrations.length > 0 ? integrations[0].id : ''));
+    
+    setIsExecuteAiTaskDialogOpen(true);
+  };
+
+  const handleExecuteAiTask = async () => {
+    if (!executingColumn || !executionIntegrationId) {
+      toast.error('Please select an integration');
+      return;
+    }
+
+    // Validate scope requirements
+    if (executionScope === 'selected_rows' && selectedRows.size === 0) {
+      toast.error('Please select rows to execute AI task on');
+      return;
+    }
+
+    let targetRowIds: string[] = [];
+    let targetCellId: string | undefined;
+
+    // Determine target based on scope
+    switch (executionScope) {
+      case 'column':
+        // All rows in the column - no specific targeting needed
+        break;
+      case 'selected_rows':
+        targetRowIds = Array.from(selectedRows);
+        break;
+      case 'single_row':
+        if (table?.formattedRows && table.formattedRows.length > 0) {
+          targetRowIds = [table.formattedRows[0].id]; // For demo, use first row
+        }
+        break;
+      case 'single_cell':
+        // For demo, target first cell in the column
+        if (table?.formattedRows && table.formattedRows.length > 0) {
+          const firstRow = table.formattedRows[0];
+          // Need to find the cell ID for this column and row
+          targetCellId = `${firstRow.id}_${executingColumn.id}`; // This might need adjustment based on actual cell ID structure
+        }
+        break;
+    }
+
+    setIsExecuting(true);
+    try {
+      const executeRequest = {
+        tableId,
+        columnId: executingColumn.id,
+        integrationId: executionIntegrationId,
+        executionScope,
+        targetRowIds: targetRowIds.length > 0 ? targetRowIds : undefined,
+        targetCellId
+      };
+
+      const response = await apiClient.aiTasks.execute(executeRequest);
+      if (response.data.success) {
+        setExecutionJobId(response.data.data.jobId);
+        toast.success('AI task execution started! Check the Jobs dashboard for progress.');
+        setIsExecuteAiTaskDialogOpen(false);
+        
+        // Reset execution state
+        setExecutingColumn(null);
+        setExecutionIntegrationId('');
+        setExecutionScope('column');
+      }
+    } catch (error: any) {
+      console.error('Error executing AI task:', error);
+      toast.error(error.response?.data?.error || 'Failed to execute AI task');
+    } finally {
+      setIsExecuting(false);
     }
   };
 
@@ -960,10 +1188,25 @@ export default function TableViewPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenEditColumn(column)}>
                                 <Edit3 className="h-4 w-4 mr-2" />
                                 Edit Column
                               </DropdownMenuItem>
+                              {column.type === 'ai_task' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleOpenAiTaskExecution(column, 'column')}>
+                                    <span className="mr-2">🤖</span>
+                                    Execute AI Task (All Rows)
+                                  </DropdownMenuItem>
+                                  {selectedRows.size > 0 && (
+                                    <DropdownMenuItem onClick={() => handleOpenAiTaskExecution(column, 'selected_rows')}>
+                                      <span className="mr-2">✅</span>
+                                      Execute AI Task (Selected Rows)
+                                    </DropdownMenuItem>
+                                  )}
+                                </>
+                              )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 onClick={() => handleDeleteColumn(column.id, column.name)}
@@ -1076,7 +1319,7 @@ export default function TableViewPage() {
 
       {/* Add Column Dialog */}
       <Dialog open={isAddColumnDialogOpen} onOpenChange={setIsAddColumnDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Column</DialogTitle>
             <DialogDescription>
@@ -1113,16 +1356,202 @@ export default function TableViewPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* AI Task Configuration */}
+            {newColumn.type === 'ai_task' && (
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🤖</span>
+                  <h4 className="font-medium">AI Task Configuration</h4>
+                </div>
+
+                <div>
+                  <Label htmlFor="ai-prompt">Prompt Template *</Label>
+                  <Textarea
+                    id="ai-prompt"
+                    placeholder="Enter your prompt template. Use {{column_name}} to reference other columns..."
+                    value={newColumn.settings?.aiTask?.prompt || ''}
+                    onChange={(e) => setNewColumn(prev => ({
+                      ...prev,
+                      settings: {
+                        ...prev.settings,
+                        aiTask: {
+                          ...prev.settings?.aiTask,
+                          prompt: e.target.value
+                        }
+                      }
+                    }))}
+                    rows={4}
+                    className="resize-none"
+                  />
+                  {availableVariables.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground mb-1">Available variables:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {availableVariables.map((variable) => (
+                          <button
+                            key={variable}
+                            type="button"
+                            onClick={() => {
+                              const currentPrompt = newColumn.settings?.aiTask?.prompt || '';
+                              const newPrompt = currentPrompt + `{{${variable}}}`;
+                              setNewColumn(prev => ({
+                                ...prev,
+                                settings: {
+                                  ...prev.settings,
+                                  aiTask: {
+                                    ...prev.settings?.aiTask,
+                                    prompt: newPrompt
+                                  }
+                                }
+                              }));
+                            }}
+                            className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 rounded border"
+                          >
+                            {`{{${variable}}}`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="ai-use-case">Use Case</Label>
+                  <Select 
+                    value={newColumn.settings?.aiTask?.useCase || 'content_creation'}
+                    onValueChange={(value) => setNewColumn(prev => ({
+                      ...prev,
+                      settings: {
+                        ...prev.settings,
+                        aiTask: {
+                          ...prev.settings?.aiTask,
+                          useCase: value
+                        }
+                      }
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="content_creation">Content Creation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="ai-integration">Default Integration (Optional)</Label>
+                  <Select 
+                    value={newColumn.settings?.aiTask?.integrationId || 'none'}
+                    onValueChange={(value) => setNewColumn(prev => ({
+                      ...prev,
+                      settings: {
+                        ...prev.settings,
+                        aiTask: {
+                          ...prev.settings?.aiTask,
+                          integrationId: value === 'none' ? undefined : value
+                        }
+                      }
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select integration (can be overridden later)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No default (select during execution)</SelectItem>
+                      {loadingIntegrations ? (
+                        <SelectItem value="loading" disabled>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Loading integrations...
+                        </SelectItem>
+                      ) : (
+                        integrations.map((integration) => (
+                          <SelectItem key={integration.id} value={integration.id}>
+                            <div className="flex items-center gap-2">
+                              <span>🤖</span>
+                              <span>{integration.name}</span>
+                              <span className="text-xs text-muted-foreground">({integration.serviceName})</span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {integrations.length === 0 && !loadingIntegrations && (
+                    <p className="text-xs text-orange-600 mt-1">
+                      No AI integrations found. You can add them in the Integrations page.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Model Configuration (Optional)</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="ai-model" className="text-xs">Model</Label>
+                      <Input
+                        id="ai-model"
+                        placeholder="e.g., gpt-4o-mini"
+                        value={newColumn.settings?.aiTask?.modelConfig?.model || ''}
+                        onChange={(e) => setNewColumn(prev => ({
+                          ...prev,
+                          settings: {
+                            ...prev.settings,
+                            aiTask: {
+                              ...prev.settings?.aiTask,
+                              modelConfig: {
+                                ...prev.settings?.aiTask?.modelConfig,
+                                model: e.target.value
+                              }
+                            }
+                          }
+                        }))}
+                        className="h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="ai-temperature" className="text-xs">Temperature</Label>
+                      <Input
+                        id="ai-temperature"
+                        type="number"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        placeholder="0.7"
+                        value={newColumn.settings?.aiTask?.modelConfig?.temperature || ''}
+                        onChange={(e) => setNewColumn(prev => ({
+                          ...prev,
+                          settings: {
+                            ...prev.settings,
+                            aiTask: {
+                              ...prev.settings?.aiTask,
+                              modelConfig: {
+                                ...prev.settings?.aiTask?.modelConfig,
+                                temperature: e.target.value ? parseFloat(e.target.value) : undefined
+                              }
+                            }
+                          }
+                        }))}
+                        className="h-8"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             
-            <div>
-              <Label htmlFor="default-value">Default Value</Label>
-              <Input
-                id="default-value"
-                placeholder="Optional default value"
-                value={newColumn.defaultValue}
-                onChange={(e) => setNewColumn(prev => ({ ...prev, defaultValue: e.target.value }))}
-              />
-            </div>
+            {newColumn.type !== 'ai_task' && (
+              <div>
+                <Label htmlFor="default-value">Default Value</Label>
+                <Input
+                  id="default-value"
+                  placeholder="Optional default value"
+                  value={newColumn.defaultValue}
+                  onChange={(e) => setNewColumn(prev => ({ ...prev, defaultValue: e.target.value }))}
+                />
+              </div>
+            )}
             
             <div className="flex items-center gap-4">
               <div className="flex items-center space-x-2">
@@ -1164,6 +1593,421 @@ export default function TableViewPage() {
                 </>
               ) : (
                 'Add Column'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Column Dialog */}
+      <Dialog open={isEditColumnDialogOpen} onOpenChange={setIsEditColumnDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Column</DialogTitle>
+            <DialogDescription>
+              Update the column configuration.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-column-name">Column Name *</Label>
+              <Input
+                id="edit-column-name"
+                placeholder="Enter column name"
+                value={newColumn.name}
+                onChange={(e) => setNewColumn(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="edit-column-type">Column Type</Label>
+              <Select value={newColumn.type} onValueChange={(value: any) => setNewColumn(prev => ({ ...prev, type: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COLUMN_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      <div className="flex items-center gap-2">
+                        <span>{type.icon}</span>
+                        <span>{type.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* AI Task Configuration */}
+            {newColumn.type === 'ai_task' && (
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🤖</span>
+                  <h4 className="font-medium">AI Task Configuration</h4>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-ai-prompt">Prompt Template *</Label>
+                  <Textarea
+                    id="edit-ai-prompt"
+                    placeholder="Enter your prompt template. Use {{column_name}} to reference other columns..."
+                    value={newColumn.settings?.aiTask?.prompt || ''}
+                    onChange={(e) => setNewColumn(prev => ({
+                      ...prev,
+                      settings: {
+                        ...prev.settings,
+                        aiTask: {
+                          ...prev.settings?.aiTask,
+                          prompt: e.target.value
+                        }
+                      }
+                    }))}
+                    rows={4}
+                    className="resize-none"
+                  />
+                  {availableVariables.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground mb-1">Available variables:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {availableVariables.map((variable) => (
+                          <button
+                            key={variable}
+                            type="button"
+                            onClick={() => {
+                              const currentPrompt = newColumn.settings?.aiTask?.prompt || '';
+                              const newPrompt = currentPrompt + `{{${variable}}}`;
+                              setNewColumn(prev => ({
+                                ...prev,
+                                settings: {
+                                  ...prev.settings,
+                                  aiTask: {
+                                    ...prev.settings?.aiTask,
+                                    prompt: newPrompt
+                                  }
+                                }
+                              }));
+                            }}
+                            className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 rounded border"
+                          >
+                            {`{{${variable}}}`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-ai-use-case">Use Case</Label>
+                  <Select 
+                    value={newColumn.settings?.aiTask?.useCase || 'content_creation'}
+                    onValueChange={(value) => setNewColumn(prev => ({
+                      ...prev,
+                      settings: {
+                        ...prev.settings,
+                        aiTask: {
+                          ...prev.settings?.aiTask,
+                          useCase: value
+                        }
+                      }
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="content_creation">Content Creation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-ai-integration">Default Integration (Optional)</Label>
+                  <Select 
+                    value={newColumn.settings?.aiTask?.integrationId || 'none'}
+                    onValueChange={(value) => setNewColumn(prev => ({
+                      ...prev,
+                      settings: {
+                        ...prev.settings,
+                        aiTask: {
+                          ...prev.settings?.aiTask,
+                          integrationId: value === 'none' ? undefined : value
+                        }
+                      }
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select integration (can be overridden later)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No default (select during execution)</SelectItem>
+                      {loadingIntegrations ? (
+                        <SelectItem value="loading" disabled>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Loading integrations...
+                        </SelectItem>
+                      ) : (
+                        integrations.map((integration) => (
+                          <SelectItem key={integration.id} value={integration.id}>
+                            <div className="flex items-center gap-2">
+                              <span>🤖</span>
+                              <span>{integration.name}</span>
+                              <span className="text-xs text-muted-foreground">({integration.serviceName})</span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {integrations.length === 0 && !loadingIntegrations && (
+                    <p className="text-xs text-orange-600 mt-1">
+                      No AI integrations found. You can add them in the Integrations page.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Model Configuration (Optional)</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="edit-ai-model" className="text-xs">Model</Label>
+                      <Input
+                        id="edit-ai-model"
+                        placeholder="e.g., gpt-4o-mini"
+                        value={newColumn.settings?.aiTask?.modelConfig?.model || ''}
+                        onChange={(e) => setNewColumn(prev => ({
+                          ...prev,
+                          settings: {
+                            ...prev.settings,
+                            aiTask: {
+                              ...prev.settings?.aiTask,
+                              modelConfig: {
+                                ...prev.settings?.aiTask?.modelConfig,
+                                model: e.target.value
+                              }
+                            }
+                          }
+                        }))}
+                        className="h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-ai-temperature" className="text-xs">Temperature</Label>
+                      <Input
+                        id="edit-ai-temperature"
+                        type="number"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        placeholder="0.7"
+                        value={newColumn.settings?.aiTask?.modelConfig?.temperature || ''}
+                        onChange={(e) => setNewColumn(prev => ({
+                          ...prev,
+                          settings: {
+                            ...prev.settings,
+                            aiTask: {
+                              ...prev.settings?.aiTask,
+                              modelConfig: {
+                                ...prev.settings?.aiTask?.modelConfig,
+                                temperature: e.target.value ? parseFloat(e.target.value) : undefined
+                              }
+                            }
+                          }
+                        }))}
+                        className="h-8"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {newColumn.type !== 'ai_task' && (
+              <div>
+                <Label htmlFor="edit-default-value">Default Value</Label>
+                <Input
+                  id="edit-default-value"
+                  placeholder="Optional default value"
+                  value={newColumn.defaultValue}
+                  onChange={(e) => setNewColumn(prev => ({ ...prev, defaultValue: e.target.value }))}
+                />
+              </div>
+            )}
+            
+            <div className="flex items-center gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="edit-required" 
+                  checked={newColumn.isRequired}
+                  onCheckedChange={(checked) => setNewColumn(prev => ({ ...prev, isRequired: !!checked }))}
+                />
+                <Label htmlFor="edit-required">Required</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="edit-editable" 
+                  checked={newColumn.isEditable}
+                  onCheckedChange={(checked) => setNewColumn(prev => ({ ...prev, isEditable: !!checked }))}
+                />
+                <Label htmlFor="edit-editable">Editable</Label>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsEditColumnDialogOpen(false);
+                setEditingColumn(null);
+              }}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleEditColumn}
+              disabled={isLoading || !newColumn.name.trim()}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Update Column'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Task Execution Dialog */}
+      <Dialog open={isExecuteAiTaskDialogOpen} onOpenChange={setIsExecuteAiTaskDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Execute AI Task</DialogTitle>
+            <DialogDescription>
+              Run the AI task for "{executingColumn?.name}" column
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Current Prompt Display */}
+            {executingColumn?.settings?.aiTask?.prompt && (
+              <div className="p-3 bg-muted rounded-lg">
+                <Label className="text-sm font-medium">Prompt Template:</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {executingColumn.settings.aiTask.prompt}
+                </p>
+              </div>
+            )}
+
+            {/* Execution Scope */}
+            <div>
+              <Label>Execution Scope</Label>
+              <Select value={executionScope} onValueChange={(value: any) => setExecutionScope(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="column">
+                    <div className="flex items-center gap-2">
+                      <span>🗂️</span>
+                      <span>Entire Column ({table?.totalRows || 0} rows)</span>
+                    </div>
+                  </SelectItem>
+                  {selectedRows.size > 0 && (
+                    <SelectItem value="selected_rows">
+                      <div className="flex items-center gap-2">
+                        <span>✅</span>
+                        <span>Selected Rows ({selectedRows.size} rows)</span>
+                      </div>
+                    </SelectItem>
+                  )}
+                  <SelectItem value="single_row">
+                    <div className="flex items-center gap-2">
+                      <span>📄</span>
+                      <span>Single Row (first row only)</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="single_cell">
+                    <div className="flex items-center gap-2">
+                      <span>🔗</span>
+                      <span>Single Cell (first cell only)</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Integration Selection */}
+            <div>
+              <Label>AI Integration *</Label>
+              <Select value={executionIntegrationId} onValueChange={setExecutionIntegrationId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an AI integration" />
+                </SelectTrigger>
+                <SelectContent>
+                  {integrations.map((integration) => (
+                    <SelectItem key={integration.id} value={integration.id}>
+                      <div className="flex items-center gap-2">
+                        <span>🤖</span>
+                        <span>{integration.name}</span>
+                        <span className="text-xs text-muted-foreground">({integration.serviceName})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {integrations.length === 0 && (
+                <p className="text-xs text-orange-600 mt-1">
+                  No AI integrations found. Please add them in the Integrations page.
+                </p>
+              )}
+            </div>
+
+            {/* Execution Summary */}
+            <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950">
+              <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">Execution Summary:</h4>
+              <ul className="text-xs text-blue-700 dark:text-blue-300 mt-1 space-y-1">
+                <li>• Column: {executingColumn?.name}</li>
+                <li>• Scope: {executionScope.replace('_', ' ')}</li>
+                <li>• Integration: {integrations.find(i => i.id === executionIntegrationId)?.name || 'None selected'}</li>
+                {executionScope === 'column' && <li>• Estimated tasks: {table?.totalRows || 0}</li>}
+                {executionScope === 'selected_rows' && <li>• Estimated tasks: {selectedRows.size}</li>}
+                {(executionScope === 'single_row' || executionScope === 'single_cell') && <li>• Estimated tasks: 1</li>}
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsExecuteAiTaskDialogOpen(false);
+                setExecutingColumn(null);
+              }}
+              disabled={isExecuting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleExecuteAiTask}
+              disabled={isExecuting || !executionIntegrationId || integrations.length === 0}
+            >
+              {isExecuting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <span className="mr-2">🚀</span>
+                  Execute AI Task
+                </>
               )}
             </Button>
           </DialogFooter>

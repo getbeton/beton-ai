@@ -130,7 +130,7 @@ export interface TableColumn {
   id: string;
   tableId: string;
   name: string;
-  type: 'text' | 'number' | 'currency' | 'date' | 'url' | 'email' | 'checkbox';
+  type: 'text' | 'number' | 'currency' | 'date' | 'url' | 'email' | 'checkbox' | 'ai_task';
   isRequired: boolean;
   isEditable: boolean;
   defaultValue?: string;
@@ -184,7 +184,7 @@ export interface UpdateTableRequest {
 
 export interface CreateColumnRequest {
   name: string;
-  type: 'text' | 'number' | 'currency' | 'date' | 'url' | 'email' | 'checkbox';
+  type: 'text' | 'number' | 'currency' | 'date' | 'url' | 'email' | 'checkbox' | 'ai_task';
   isRequired?: boolean;
   isEditable?: boolean;
   defaultValue?: string;
@@ -443,6 +443,42 @@ export const apiClient = {
     delete: (id: string): Promise<{ data: { success: boolean } }> => 
       api.delete(`/api/integrations/${id}`),
   },
+
+  // AI Task endpoints
+  aiTasks: {
+    execute: (data: CreateAiTaskJobRequest): Promise<{ data: { success: boolean; data: { jobId: string } } }> => 
+      api.post('/api/ai-tasks/execute', data),
+
+    getJobStatus: (jobId: string): Promise<{ data: { success: boolean; data: AiTaskJob } }> => 
+      api.get(`/api/ai-tasks/jobs/${jobId}`),
+
+    cancelJob: (jobId: string): Promise<{ data: { success: boolean } }> => 
+      api.post(`/api/ai-tasks/jobs/${jobId}/cancel`),
+
+    listJobs: (params?: { status?: string; limit?: number; offset?: number }): Promise<{ data: { success: boolean; data: AiTaskJob[] } }> => {
+      const searchParams = new URLSearchParams();
+      if (params?.status) searchParams.append('status', params.status);
+      if (params?.limit) searchParams.append('limit', params.limit.toString());
+      if (params?.offset) searchParams.append('offset', params.offset.toString());
+      const query = searchParams.toString();
+      return api.get(`/api/ai-tasks/jobs${query ? `?${query}` : ''}`);
+    },
+
+    validateColumn: (settings: any): Promise<{ data: { success: boolean; data: { isValid: boolean; errors: string[] } } }> => 
+      api.post('/api/ai-tasks/validate-column', { settings }),
+
+    getAvailableVariables: (tableId: string): Promise<{ data: { success: boolean; data: { variables: string[] } } }> => 
+      api.get(`/api/ai-tasks/tables/${tableId}/variables`),
+
+    getExecutions: (jobId: string, params?: { status?: string; limit?: number; offset?: number }): Promise<{ data: { success: boolean; data: AiTaskExecution[] } }> => {
+      const searchParams = new URLSearchParams();
+      if (params?.status) searchParams.append('status', params.status);
+      if (params?.limit) searchParams.append('limit', params.limit.toString());
+      if (params?.offset) searchParams.append('offset', params.offset.toString());
+      const query = searchParams.toString();
+      return api.get(`/api/ai-tasks/jobs/${jobId}/executions${query ? `?${query}` : ''}`);
+    },
+  },
 };
 
 // LeadMagic API endpoints
@@ -468,5 +504,81 @@ export const leadmagicApi = {
     });
   }
 };
+
+// AI Task API
+export const aiTaskApi = {
+  // Get AI task jobs
+  getJobs: async (): Promise<{ data: { success: boolean; data: AiTaskJob[] } }> => {
+    return api.get('/api/ai-tasks/jobs');
+  },
+
+  // Get specific AI task job
+  getJob: async (jobId: string): Promise<{ data: { success: boolean; data: AiTaskJob } }> => {
+    return api.get(`/api/ai-tasks/jobs/${jobId}`);
+  },
+
+  // Cancel AI task job  
+  cancelJob: async (jobId: string): Promise<{ data: { success: boolean } }> => {
+    return api.post(`/api/ai-tasks/jobs/${jobId}/cancel`);
+  },
+
+  // Get AI task executions for a job
+  getJobExecutions: async (jobId: string): Promise<{ data: { success: boolean; data: AiTaskExecution[] } }> => {
+    return api.get(`/api/ai-tasks/jobs/${jobId}/executions`);
+  }
+};
+
+// AI Task types
+export interface AiTaskJobData {
+  jobId: string;
+  userId: string;
+  tableId: string;
+  columnId: string;
+  integrationId: string;
+  prompt: string;
+  modelConfig: any;
+  executionScope: 'column' | 'selected_rows' | 'single_row' | 'single_cell';
+  targetRowIds?: string[];
+  targetCellId?: string;
+}
+
+export interface CreateAiTaskJobRequest {
+  tableId: string;
+  columnId: string;
+  integrationId: string;
+  prompt?: string;
+  modelConfig?: any;
+  executionScope: 'column' | 'selected_rows' | 'single_row' | 'single_cell';
+  targetRowIds?: string[];
+  targetCellId?: string;
+}
+
+export interface AiTaskJob {
+  id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  executionScope: string;
+  tableName: string;
+  columnName: string;
+  totalTasks: number;
+  completedTasks: number;
+  failedTasks: number;
+  progress: number;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+}
+
+export interface AiTaskExecution {
+  id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  rowOrder: number;
+  columnName: string;
+  result?: string;
+  error?: string;
+  tokensUsed?: number;
+  cost?: number;
+  executedAt?: string;
+  createdAt: string;
+}
 
 export default api; 

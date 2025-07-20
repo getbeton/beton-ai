@@ -82,6 +82,7 @@ model UserTable {
   bulkJobs        BulkDownloadJob[]
   columns         TableColumn[]
   rows            TableRow[]
+  aiTaskJobs      AiTaskJob[]
 
   @@unique([userId, name])
   @@map("user_tables")
@@ -101,6 +102,7 @@ model TableColumn {
   updatedAt    DateTime    @updatedAt
   cells        TableCell[]
   table        UserTable   @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  aiTaskJobs   AiTaskJob[]
 
   @@unique([tableId, name])
   @@map("table_columns")
@@ -121,14 +123,15 @@ model TableRow {
 }
 
 model TableCell {
-  id        String      @id @default(cuid())
-  rowId     String
-  columnId  String
-  value     String?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  column    TableColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  row       TableRow    @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  id               String            @id @default(cuid())
+  rowId            String
+  columnId         String
+  value            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  column           TableColumn       @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  row              TableRow          @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  aiTaskExecutions AiTaskExecution[]
 
   @@unique([rowId, columnId])
   @@map("table_cells")
@@ -171,4 +174,49 @@ model BulkDownloadProgress {
 
   @@unique([jobId, page])
   @@map("bulk_download_progress")
+}
+
+model AiTaskJob {
+  id              String            @id @default(cuid())
+  userId          String
+  tableId         String
+  columnId        String
+  integrationId   String
+  prompt          String
+  modelConfig     Json              @default("{}")
+  executionScope  String            // 'column' | 'selected_rows' | 'single_row' | 'single_cell'
+  targetRowIds    String[]          @default([])
+  targetCellId    String?
+  status          String            @default("pending") // 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  totalTasks      Int               @default(0)
+  completedTasks  Int               @default(0)
+  failedTasks     Int               @default(0)
+  bullJobId       String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  table           UserTable         @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  column          TableColumn       @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  executions      AiTaskExecution[]
+
+  @@map("ai_task_jobs")
+}
+
+model AiTaskExecution {
+  id          String      @id @default(cuid())
+  jobId       String
+  cellId      String
+  prompt      String      // processed prompt with variables substituted
+  status      String      @default("pending") // 'pending' | 'running' | 'completed' | 'failed'
+  result      String?
+  error       String?
+  tokensUsed  Int?
+  cost        Decimal?    @db.Decimal(10, 6)
+  executedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  job         AiTaskJob   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  cell        TableCell   @relation(fields: [cellId], references: [id], onDelete: Cascade)
+
+  @@map("ai_task_executions")
 }

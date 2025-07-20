@@ -9,6 +9,7 @@ interface UseWebSocketOptions {
   onCSVUploadProgress?: (progress: CSVUploadProgress) => void;
   onCSVUploadComplete?: (progress: CSVUploadProgress) => void;
   onCSVUploadFailed?: (progress: CSVUploadProgress) => void;
+  onCellUpdate?: (cellUpdate: { cellId: string; value: string; timestamp: string }) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
 }
@@ -22,6 +23,7 @@ export const useWebSocket = (options: UseWebSocketOptions) => {
     onCSVUploadProgress,
     onCSVUploadComplete,
     onCSVUploadFailed,
+    onCellUpdate,
     onConnect,
     onDisconnect
   } = options;
@@ -113,6 +115,11 @@ export const useWebSocket = (options: UseWebSocketOptions) => {
                 onCSVUploadFailed(message.data as CSVUploadProgress);
               }
               break;
+            case 'cell_update':
+              if (message.data && onCellUpdate && 'cellId' in message.data) {
+                onCellUpdate(message.data as { cellId: string; value: string; timestamp: string });
+              }
+              break;
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -150,7 +157,7 @@ export const useWebSocket = (options: UseWebSocketOptions) => {
       setConnectionStatus('error');
       isConnectingRef.current = false;
     }
-  }, [userId, onJobProgress, onJobComplete, onJobFailed, onCSVUploadProgress, onCSVUploadComplete, onCSVUploadFailed, onConnect, onDisconnect]);
+  }, [userId, onJobProgress, onJobComplete, onJobFailed, onCSVUploadProgress, onCSVUploadComplete, onCSVUploadFailed, onCellUpdate, onConnect, onDisconnect]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {

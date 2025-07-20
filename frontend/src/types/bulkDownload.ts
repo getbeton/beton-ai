@@ -80,9 +80,8 @@ export interface CSVUploadJobInfo {
 
 // WebSocket message types
 export interface WebSocketMessage {
-  type: 'auth_success' | 'job_progress' | 'job_complete' | 'job_failed' | 'csv_upload_progress' | 'csv_upload_complete' | 'csv_upload_failed';
-  data?: BulkDownloadJobInfo | CSVUploadProgress;
-  message?: string;
+  type: 'auth_success' | 'job_progress' | 'job_complete' | 'job_failed' | 'csv_upload_progress' | 'csv_upload_complete' | 'csv_upload_failed' | 'cell_update';
+  data: BulkDownloadJobInfo | CSVUploadProgress | { cellId: string; value: string; timestamp: string };
 }
 
 export interface WebSocketAuthMessage {
