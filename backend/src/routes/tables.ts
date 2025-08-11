@@ -435,11 +435,14 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
         isSelected: row.isSelected,
         order: row.order,
         createdAt: row.createdAt,
-        updatedAt: row.updatedAt
+        updatedAt: row.updatedAt,
+        _cellIds: {} // Store cellId mapping for frontend
       };
 
       row.cells.forEach(cell => {
         rowData[cell.column.name] = cell.value;
+        // Store cellId mapping: columnId -> cellId
+        rowData._cellIds[cell.column.id] = cell.id;
       });
 
       return rowData;

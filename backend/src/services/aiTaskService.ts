@@ -232,15 +232,41 @@ export class AiTaskService {
         throw new Error('Cell not found');
       }
 
-      // Build row data map
+      // Build row data map with multiple alias formats
       const rowData: Record<string, string> = {};
+      const columnAliases: Record<string, string> = {};
+      
       cell.row.cells.forEach(rowCell => {
-        rowData[rowCell.column.name] = rowCell.value || '';
+        const columnName = rowCell.column.name;
+        const columnValue = rowCell.value || '';
+        
+        // Store with original name
+        rowData[columnName] = columnValue;
+        
+        // Create aliases for different formats
+        const aliases = this.generateColumnAliases(columnName);
+        aliases.forEach(alias => {
+          columnAliases[alias.toLowerCase()] = columnValue;
+        });
       });
 
-      // Substitute variables using simple regex
-      const processedPrompt = prompt.replace(/\{\{(\w+)\}\}/g, (match, columnName) => {
-        return rowData[columnName] || match; // Keep original if column doesn't exist
+      // Enhanced regex to match variables with spaces, underscores, and word characters
+      const processedPrompt = prompt.replace(/\{\{([^}]+)\}\}/g, (match, variableName) => {
+        const trimmedVar = variableName.trim();
+        
+        // Try exact match first
+        if (rowData[trimmedVar]) {
+          return rowData[trimmedVar];
+        }
+        
+        // Try case-insensitive alias lookup
+        const lowerVar = trimmedVar.toLowerCase();
+        if (columnAliases[lowerVar]) {
+          return columnAliases[lowerVar];
+        }
+        
+        // Keep original if no match found
+        return match;
       });
 
       return processedPrompt;
@@ -249,6 +275,41 @@ export class AiTaskService {
       console.error('Error substituting prompt variables:', error);
       throw error;
     }
+  }
+
+  /**
+   * Generate column name aliases for template variable matching
+   */
+  private static generateColumnAliases(columnName: string): string[] {
+    const aliases: string[] = [columnName];
+    
+    // Add space-to-underscore variant
+    if (columnName.includes('_')) {
+      aliases.push(columnName.replace(/_/g, ' '));
+    }
+    
+    // Add underscore-to-space variant  
+    if (columnName.includes(' ')) {
+      aliases.push(columnName.replace(/\s+/g, '_'));
+    }
+    
+    // Add variations with different casing
+    aliases.push(columnName.toLowerCase());
+    aliases.push(columnName.toUpperCase());
+    
+    // Add camelCase variant
+    const camelCase = columnName.replace(/[-_\s]+(.)?/g, (_, char) => char ? char.toUpperCase() : '');
+    if (camelCase !== columnName) {
+      aliases.push(camelCase);
+    }
+    
+    // Add snake_case variant
+    const snakeCase = columnName.replace(/\s+/g, '_').toLowerCase();
+    if (snakeCase !== columnName) {
+      aliases.push(snakeCase);
+    }
+    
+    return [...new Set(aliases)]; // Remove duplicates
   }
 
   /**
@@ -484,12 +545,13 @@ export class AiTaskService {
 
     // Validate variable syntax in prompt
     if (prompt) {
-      const variableMatches = prompt.match(/\{\{(\w+)\}\}/g);
+      const variableMatches = prompt.match(/\{\{([^}]+)\}\}/g);
       if (variableMatches) {
-                 const invalidVariables = variableMatches.filter((match: string) => {
-           const variableName = match.replace(/\{\{|\}\}/g, '');
-           return !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(variableName);
-         });
+        const invalidVariables = variableMatches.filter((match: string) => {
+          const variableName = match.replace(/\{\{|\}\}/g, '').trim();
+          // Allow alphanumeric, spaces, underscores, and hyphens
+          return !/^[a-zA-Z_][a-zA-Z0-9_\s-]*$/.test(variableName);
+        });
         
         if (invalidVariables.length > 0) {
           errors.push(`Invalid variable names: ${invalidVariables.join(', ')}`);

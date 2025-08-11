@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { useRouter, useParams } from 'next/navigation';
 import Head from 'next/head';
 import { supabase } from '@/lib/supabase';
 import { apiClient, type UserTable, type TableColumn, type CreateColumnRequest, type Integration } from '@/lib/api';
 import { TableCellRenderer } from '@/components/tables/TableCellRenderer';
 import { useAiTaskCells } from '@/hooks/useAiTaskCells';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { 
   Plus,
   Table as TableIcon,
@@ -191,11 +193,50 @@ export default function TableViewPage() {
   // AI Task cells hook for real-time updates
   const aiTaskCells = useAiTaskCells({
     userId: user?.id,
-    onCellUpdate: (cellId, value) => {
-      console.log(`Cell ${cellId} updated with value:`, value);
-      // Optionally refresh table data
-      fetchTable();
+    onCellUpdate: undefined // Don't auto-refresh table on cell updates
+  });
+
+  // WebSocket handlers for real-time updates
+  const handleAiTaskProgress = useCallback((data: any) => {
+    // Mark cells as loading when job starts
+    if (data.type === 'ai_task' && data.status === 'running') {
+      console.log('AI task job running:', data.id);
     }
+  }, []);
+
+  const handleCellUpdate = useCallback((data: any) => {
+    console.log('🔄 WebSocket cell update received:', {
+      cellId: data.cellId,
+      value: data.value,
+      valueType: typeof data.value,
+      valueLength: data.value?.length,
+      hasValue: data.value !== undefined,
+      fullData: data
+    });
+    
+    if (data.cellId && data.value !== undefined) {
+      console.log('✅ Calling aiTaskCells.updateCellValue with:', {
+        cellId: data.cellId,
+        value: data.value
+      });
+      aiTaskCells.updateCellValue(data.cellId, data.value);
+      console.log(`📱 Cell ${data.cellId} updated with AI result`);
+    } else {
+      console.log('❌ Skipping cell update - missing cellId or value:', {
+        hasCellId: !!data.cellId,
+        hasValue: data.value !== undefined,
+        cellId: data.cellId,
+        value: data.value
+      });
+    }
+  }, [aiTaskCells]);
+
+  // Single WebSocket connection for the entire table page
+  useWebSocket({
+    userId: user?.id,
+    onJobProgress: handleAiTaskProgress,
+    onJobComplete: handleAiTaskProgress,
+    onCellUpdate: handleCellUpdate
   });
   
   // Form states
@@ -212,6 +253,9 @@ export default function TableViewPage() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [availableVariables, setAvailableVariables] = useState<string[]>([]);
   const [loadingIntegrations, setLoadingIntegrations] = useState(false);
+  const [integrationsError, setIntegrationsError] = useState<string | null>(null);
+  const [loadingVariables, setLoadingVariables] = useState(false);
+  const [variablesError, setVariablesError] = useState<string | null>(null);
   
   const [isLoading, setIsLoading] = useState(false);
 
@@ -225,6 +269,13 @@ export default function TableViewPage() {
         }
         setUser(session.user);
         await fetchTable();
+        
+        // Preload integrations and variables for AI functionality
+        // This ensures they're always available when editing AI columns or executing tasks
+        await Promise.all([
+          fetchIntegrations(),
+          fetchAvailableVariables()
+        ]);
       } catch (error) {
         console.error('Error checking user session:', error);
         router.push('/auth');
@@ -236,13 +287,8 @@ export default function TableViewPage() {
     checkUser();
   }, [router, tableId]);
 
-  // Fetch integrations and variables when dialog opens
-  useEffect(() => {
-    if (isAddColumnDialogOpen || isEditColumnDialogOpen) {
-      fetchIntegrations();
-      fetchAvailableVariables();
-    }
-  }, [isAddColumnDialogOpen, isEditColumnDialogOpen]);
+  // Note: Integrations and variables are now preloaded on page load
+  // instead of when dialogs open to prevent empty modal states
 
   // Reset AI task settings when column type changes
   useEffect(() => {
@@ -265,6 +311,48 @@ export default function TableViewPage() {
       }));
     }
   }, [newColumn.type]);
+
+  // Monitor edit dialog state for debugging
+  useEffect(() => {
+    if (isEditColumnDialogOpen) {
+      console.log('📊 Edit dialog opened - State analysis:', {
+        dialogOpen: isEditColumnDialogOpen,
+        editingColumnExists: !!editingColumn,
+        editingColumnName: editingColumn?.name,
+        editingColumnType: editingColumn?.type,
+        editingColumnSettings: editingColumn?.settings,
+        newColumnName: newColumn.name,
+        newColumnType: newColumn.type,
+        newColumnSettings: newColumn.settings,
+        hasAiPrompt: !!newColumn.settings?.aiTask?.prompt,
+        promptValue: newColumn.settings?.aiTask?.prompt,
+        useCaseValue: newColumn.settings?.aiTask?.useCase,
+        integrationIdValue: newColumn.settings?.aiTask?.integrationId,
+        timestamp: new Date().toISOString()
+      });
+    } else if (!isEditColumnDialogOpen && editingColumn) {
+      console.log('❌ Edit dialog closed');
+    }
+  }, [isEditColumnDialogOpen, editingColumn, newColumn]);
+
+  // Fallback mechanism: Ensure form is populated if initial state update failed
+  useEffect(() => {
+    if (isEditColumnDialogOpen && editingColumn && (
+      newColumn.name !== editingColumn.name || 
+      newColumn.type !== editingColumn.type ||
+      JSON.stringify(newColumn.settings) !== JSON.stringify(editingColumn.settings)
+    )) {
+      console.log('🔄 Fallback: Re-populating form state');
+      setNewColumn({
+        name: editingColumn.name,
+        type: editingColumn.type as any,
+        isRequired: editingColumn.isRequired,
+        isEditable: editingColumn.isEditable,
+        defaultValue: editingColumn.defaultValue || '',
+        settings: structuredClone(editingColumn.settings || {})
+      });
+    }
+  }, [isEditColumnDialogOpen, editingColumn]);
 
   // Debounce search query
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
@@ -313,13 +401,23 @@ export default function TableViewPage() {
   };
 
   const handleCellEdit = async (rowId: string, columnId: string, value: string) => {
+    console.log('🔧 handleCellEdit called:', {
+      rowId,
+      columnId,
+      value,
+      valueType: typeof value,
+      valueLength: value?.length,
+      timestamp: new Date().toISOString()
+    });
+    
     try {
       const response = await apiClient.tables.updateCell(tableId, rowId, columnId, value);
       if (response.data.success) {
+        console.log('📝 API call successful, updating local table state');
         // Update the local state
         setTable(prev => {
           if (!prev?.formattedRows) return prev;
-          return {
+          const newState = {
             ...prev,
             formattedRows: prev.formattedRows.map(row => 
               row.id === rowId 
@@ -327,6 +425,8 @@ export default function TableViewPage() {
                 : row
             )
           };
+          console.log('🔄 Table state updated via handleCellEdit');
+          return newState;
         });
         toast.success('Cell updated');
       }
@@ -338,6 +438,7 @@ export default function TableViewPage() {
 
   const fetchIntegrations = async () => {
     setLoadingIntegrations(true);
+    setIntegrationsError(null);
     try {
       const response = await apiClient.integrations.list();
       if (response.data.success) {
@@ -348,36 +449,60 @@ export default function TableViewPage() {
             ['openai'].includes(integration.serviceName)
         );
         setIntegrations(llmIntegrations);
+      } else {
+        throw new Error('Failed to fetch integrations');
       }
     } catch (error) {
       console.error('Error fetching integrations:', error);
-      toast.error('Failed to load integrations');
+      setIntegrationsError(error instanceof Error ? error.message : 'Failed to load integrations');
     } finally {
       setLoadingIntegrations(false);
     }
   };
 
   const fetchAvailableVariables = async () => {
+    setLoadingVariables(true);
+    setVariablesError(null);
     try {
       const response = await apiClient.aiTasks.getAvailableVariables(tableId);
       if (response.data.success) {
         setAvailableVariables(response.data.data.variables);
+      } else {
+        throw new Error('Failed to fetch available variables');
       }
     } catch (error) {
       console.error('Error fetching available variables:', error);
+      setVariablesError(error instanceof Error ? error.message : 'Failed to load available variables');
+    } finally {
+      setLoadingVariables(false);
     }
   };
 
   const handleOpenEditColumn = (column: TableColumn) => {
-    setEditingColumn(column);
-    setNewColumn({
-      name: column.name,
-      type: column.type as any,
-      isRequired: column.isRequired,
-      isEditable: column.isEditable,
-      defaultValue: column.defaultValue || '',
-      settings: column.settings || {}
+    console.log('🔧 Opening edit column dialog:', {
+      columnName: column.name,
+      columnType: column.type,
+      hasSettings: !!column.settings,
+      aiTaskSettings: column.settings?.aiTask,
+      timestamp: new Date().toISOString()
     });
+
+    // Use flushSync to ensure immediate state updates before dialog opens
+    flushSync(() => {
+      setEditingColumn(column);
+      setNewColumn({
+        name: column.name,
+        type: column.type as any,
+        isRequired: column.isRequired,
+        isEditable: column.isEditable,
+        defaultValue: column.defaultValue || '',
+        settings: structuredClone(column.settings || {}) // Deep clone to avoid reference issues
+      });
+    });
+    
+    console.log('✅ State updated, opening dialog');
+    
+    // Open dialog after state is guaranteed to be set
     setIsEditColumnDialogOpen(true);
   };
 
@@ -477,6 +602,76 @@ export default function TableViewPage() {
     setExecutionIntegrationId(defaultIntegration || (integrations.length > 0 ? integrations[0].id : ''));
     
     setIsExecuteAiTaskDialogOpen(true);
+  };
+
+  const handleExecuteCell = (rowId: string, columnId: string) => {
+    console.log('🚀 Execute cell requested:', { rowId, columnId });
+    
+    // Find the column to check for default integration
+    if (!table?.columns) {
+      toast.error('Table data not available');
+      return;
+    }
+    
+    const column = table.columns.find(col => col.id === columnId);
+    if (!column || column.type !== 'ai_task') {
+      toast.error('Invalid AI task column');
+      return;
+    }
+
+    const defaultIntegration = column.settings?.aiTask?.integrationId;
+    
+    if (!defaultIntegration) {
+      console.log('❌ No default integration set, opening edit column dialog');
+      toast.error('Please set a default integration for this AI column to run individual cells');
+      
+      // Open the edit column dialog to let user set integration
+      handleOpenEditColumn(column);
+      return;
+    }
+
+    console.log('✅ Default integration found, executing single cell directly');
+    
+    // Find the specific row and get the cell ID
+    const targetRow = table.formattedRows?.find(row => row.id === rowId);
+    if (!targetRow) {
+      toast.error('Row not found');
+      return;
+    }
+    
+    const targetCellId = targetRow._cellIds?.[column.id];
+    if (!targetCellId) {
+      toast.error('Cell ID not found');
+      return;
+    }
+    
+    console.log('🎯 Executing cell:', { rowId, columnId, targetCellId });
+    
+    // Execute directly without opening dialog or setting selection state
+    setTimeout(async () => {
+      try {
+        // Create the execution request
+        const response = await apiClient.aiTasks.execute({
+          tableId: table.id,
+          columnId: column.id,
+          integrationId: defaultIntegration,
+          executionScope: 'single_cell',
+          targetRowIds: [rowId],
+          targetCellId: targetCellId,
+          modelConfig: column.settings?.aiTask?.modelConfig || {}
+        });
+
+        if (response.data.success) {
+          toast.success('AI task started for this cell');
+          console.log('🚀 Single cell execution started:', response.data.data.jobId);
+        } else {
+          throw new Error('Failed to start AI task');
+        }
+      } catch (error: any) {
+        console.error('Error executing single cell:', error);
+        toast.error(error.response?.data?.error || 'Failed to execute AI task');
+      }
+    }, 100); // Small delay to ensure state is set
   };
 
   const handleExecuteAiTask = async () => {
@@ -735,6 +930,29 @@ export default function TableViewPage() {
 
   const renderCellValue = (row: any, column: TableColumn) => {
     const value = row[column.name];
+    
+    // Use TableCellRenderer for AI task columns
+    if (column.type === 'ai_task') {
+      // Get the real cellId from the row data
+      const realCellId = row._cellIds?.[column.id];
+      
+      return (
+        <TableCellRenderer
+          value={value || ''}
+          column={{
+            id: column.id,
+            type: column.type,
+            name: column.name
+          }}
+          rowId={row.id}
+          cellId={realCellId} // Pass the real cellId
+          userId={user?.id}
+          onCellUpdate={handleCellEdit}
+          onExecuteCell={handleExecuteCell}
+          aiTaskCells={aiTaskCells} // Pass the centralized hook state
+        />
+      );
+    }
     
     if (editingCell?.rowId === row.id && editingCell?.columnId === column.id) {
       return (
@@ -1652,7 +1870,18 @@ export default function TableViewPage() {
             </div>
 
             {/* AI Task Configuration */}
-            {newColumn.type === 'ai_task' && (
+            {newColumn.type === 'ai_task' && editingColumn && (() => {
+              console.log('🤖 Rendering Edit AI Task Configuration:', {
+                editingColumn: editingColumn?.name,
+                newColumnType: newColumn.type,
+                hasAiSettings: !!newColumn.settings?.aiTask,
+                prompt: newColumn.settings?.aiTask?.prompt,
+                useCase: newColumn.settings?.aiTask?.useCase,
+                integrationId: newColumn.settings?.aiTask?.integrationId,
+                timestamp: new Date().toISOString()
+              });
+              return true;
+            })() && (
               <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">🤖</span>
@@ -1759,6 +1988,10 @@ export default function TableViewPage() {
                           <Loader2 className="h-4 w-4 animate-spin mr-2" />
                           Loading integrations...
                         </SelectItem>
+                      ) : integrationsError ? (
+                        <SelectItem value="error" disabled>
+                          <span className="text-red-600">⚠️ Failed to load integrations</span>
+                        </SelectItem>
                       ) : (
                         integrations.map((integration) => (
                           <SelectItem key={integration.id} value={integration.id}>
@@ -1772,7 +2005,28 @@ export default function TableViewPage() {
                       )}
                     </SelectContent>
                   </Select>
-                  {integrations.length === 0 && !loadingIntegrations && (
+                  {integrationsError && (
+                    <div className="text-xs text-red-600 mt-1 space-y-1">
+                      <p>⚠️ {integrationsError}</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={fetchIntegrations}
+                        disabled={loadingIntegrations}
+                        className="h-6 text-xs"
+                      >
+                        {loadingIntegrations ? (
+                          <>
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            Retrying...
+                          </>
+                        ) : (
+                          'Retry'
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                  {!integrationsError && integrations.length === 0 && !loadingIntegrations && (
                     <p className="text-xs text-orange-600 mt-1">
                       No AI integrations found. You can add them in the Integrations page.
                     </p>
@@ -1963,7 +2217,17 @@ export default function TableViewPage() {
                   <SelectValue placeholder="Select an AI integration" />
                 </SelectTrigger>
                 <SelectContent>
-                  {integrations.map((integration) => (
+                  {loadingIntegrations ? (
+                    <SelectItem value="loading" disabled>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Loading integrations...
+                    </SelectItem>
+                  ) : integrationsError ? (
+                    <SelectItem value="error" disabled>
+                      <span className="text-red-600">⚠️ Failed to load integrations</span>
+                    </SelectItem>
+                  ) : (
+                    integrations.map((integration) => (
                     <SelectItem key={integration.id} value={integration.id}>
                       <div className="flex items-center gap-2">
                         <span>🤖</span>
@@ -1971,10 +2235,32 @@ export default function TableViewPage() {
                         <span className="text-xs text-muted-foreground">({integration.serviceName})</span>
                       </div>
                     </SelectItem>
-                  ))}
+                    ))
+                  )}
                 </SelectContent>
               </Select>
-              {integrations.length === 0 && (
+              {integrationsError && (
+                <div className="text-xs text-red-600 mt-1 space-y-1">
+                  <p>⚠️ {integrationsError}</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={fetchIntegrations}
+                    disabled={loadingIntegrations}
+                    className="h-6 text-xs"
+                  >
+                    {loadingIntegrations ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Retrying...
+                      </>
+                    ) : (
+                      'Retry'
+                    )}
+                  </Button>
+                </div>
+              )}
+              {!integrationsError && integrations.length === 0 && !loadingIntegrations && (
                 <p className="text-xs text-orange-600 mt-1">
                   No AI integrations found. Please add them in the Integrations page.
                 </p>
