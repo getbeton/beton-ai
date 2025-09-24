@@ -29,15 +29,20 @@ Before you begin, make sure you have the following installed:
 
 1. **Clone the repository** (if you haven't already):
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/getbeton/beton-ai.git
    cd beton-ai
    ```
 
-2. **Run the setup script**:
+2. **Install dependencies** (front- and backend):
    ```bash
-   ./run.sh install
-   ./run.sh setup
+   npm run install:all
    ```
+
+3. **Bootstrap the Docker stack (optional but recommended for a full environment)**:
+   ```bash
+   ./setup.sh
+   ```
+   This script copies environment templates, builds Docker images, starts the services, and runs database migrations. Append `--clean` if you want to tear down any existing containers and volumes before rebuilding.
 
 ## Step 3: Configure Environment Variables
 
@@ -91,7 +96,7 @@ The application uses the following database structure:
 ### Option A: Development Mode (Recommended)
 
 ```bash
-./run.sh dev
+./dev.sh
 ```
 
 This will:
@@ -103,7 +108,8 @@ This will:
 ### Option B: Docker Mode
 
 ```bash
-./run.sh docker
+npm run docker:build
+npm run docker:up
 ```
 
 This will build and run everything in Docker containers with automatic database setup.
@@ -172,26 +178,31 @@ docker-compose down -v
 # Remove node_modules
 rm -rf node_modules backend/node_modules frontend/node_modules
 
-# Reinstall
-./run.sh install
-./run.sh setup
-./run.sh dev
+# Reinstall dependencies
+npm run install:all
+
+# Rebuild and start services
+./setup.sh --clean
+
+# Relaunch development environment
+./dev.sh
 ```
 
 ## Development Commands
 
 ```bash
 # Install dependencies
-./run.sh install
+npm run install:all
 
-# Setup environment files
-./run.sh setup
+# Provision Docker services and run migrations
+./setup.sh
 
 # Run in development mode
-./run.sh dev
+./dev.sh
 
 # Run with Docker
-./run.sh docker
+npm run docker:build
+npm run docker:up
 
 # Backend only
 cd backend && npm run dev

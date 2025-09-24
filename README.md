@@ -45,9 +45,9 @@ The mock service runs on port 3002 and provides Apollo-compatible endpoints for 
 For new users, use our automated setup script:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/getbeton/beton-ai.git
 cd beton-ai
-./setup-first-time.sh
+./setup.sh
 ```
 
 This script will:

@@ -7,8 +7,9 @@ Thank you for your interest in contributing to Beton-AI! This document provides 
 1. **Fork the repository** on GitHub
 2. **Clone your fork** locally:
    ```bash
-   git clone https://github.com/your-username/beton-ai.git
+   git clone https://github.com/<your-username>/beton-ai.git
    cd beton-ai
+   git remote add upstream https://github.com/getbeton/beton-ai.git
    ```
 3. **Set up the development environment** following the [Setup Guide](setup.md)
 4. **Create a new branch** for your feature/fix:
@@ -20,7 +21,7 @@ Thank you for your interest in contributing to Beton-AI! This document provides 
 
 ### Before You Start
 
-1. Check existing [issues](https://github.com/your-org/beton-ai/issues) to see if your idea is already being worked on
+1. Check existing [issues](https://github.com/getbeton/beton-ai/issues) to see if your idea is already being worked on
 2. Create a new issue if you're planning a significant change
 3. Join our discussions to coordinate with other contributors
 
@@ -39,7 +40,7 @@ Thank you for your interest in contributing to Beton-AI! This document provides 
    cd backend && npm run type-check
    
    # Test the application manually
-   ./run.sh dev
+   ./dev.sh
    ```
 
 3. **Keep your branch updated**:
