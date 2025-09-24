@@ -168,6 +168,15 @@ beton-ai/
 └── docker-compose.yml     # Multi-container configuration
 ```
 
+## 🎨 Design System (shadcn/ui + Tailwind)
+
+- Tokens live in `frontend/src/app/globals.css` and are mapped in `frontend/tailwind.config.js`.
+- UI primitives are in `frontend/src/components/ui` and follow shadcn/ui patterns.
+- Typography primitives: `frontend/src/components/ui/typography.tsx`.
+- Explore the live component showcase at `/design-system` when running the frontend.
+
+For Figma-to-code mapping and detailed rules, see `.cursor/rules/design_system_rules.mdc`.
+
 ## 🔧 Available Scripts
 
 - `npm run dev` - Start both frontend and backend in development
