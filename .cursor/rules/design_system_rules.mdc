@@ -1,0 +1,398 @@
+## Beton-AI Design System Rules (shadcn/ui + Tailwind)
+
+This repository implements a shadcn/ui-based design system with Tailwind CSS tokens and Radix primitives. Use this document to reliably translate Figma designs (for an open-source lead enrichment app, Clay.com alternative) into production code.
+
+### Token Definitions
+
+- **Where**
+  - CSS custom properties define tokens in `frontend/src/app/globals.css` under `:root` and `.dark`.
+  - Tailwind maps design tokens to utilities in `frontend/tailwind.config.js` via `hsl(var(--token))`.
+
+- **Color tokens (Light Theme)**
+```7:34:frontend/src/app/globals.css
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+```
+
+- **Color tokens (Dark Theme)**
+```36:61:frontend/src/app/globals.css
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+```
+
+- **Tailwind token mapping**
+```18:37:frontend/tailwind.config.js
+      extend: {
+        colors: {
+          border: 'hsl(var(--border))',
+          input: 'hsl(var(--input))',
+          ring: 'hsl(var(--ring))',
+          background: 'hsl(var(--background))',
+          foreground: 'hsl(var(--foreground))',
+          primary: {
+            '50': '#eff6ff',
+            '100': '#dbeafe',
+            '200': '#bfdbfe',
+            '300': '#93c5fd',
+            '400': '#60a5fa',
+            '500': '#3b82f6',
+            '600': '#2563eb',
+            '700': '#1d4ed8',
+            '800': '#1e40af',
+            '900': '#1e3a8a',
+            DEFAULT: 'hsl(var(--primary))',
+            foreground: 'hsl(var(--primary-foreground))'
+          },
+```
+
+- **Typography tokens**
+  - Fonts from Google Fonts and `next/font` Inter are used.
+```1:2:frontend/src/app/globals.css
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+```
+```2:7:frontend/src/app/layout.tsx
+import { Inter } from 'next/font/google';
+...
+const inter = Inter({ subsets: ['latin'] });
+```
+
+- **Spacing and radii**
+  - Spacing uses Tailwind defaults; container centers with 2rem padding and max 1400px at 2xl.
+  - Radius is tokenized via `--radius` and mapped to Tailwind borderRadius.
+```10:16:frontend/tailwind.config.js
+    container: {
+      center: true,
+      padding: '2rem',
+      screens: {
+        '2xl': '1400px',
+      },
+    },
+```
+```80:84:frontend/tailwind.config.js
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)'
+      },
+```
+
+- **Token transformation**
+  - No external token pipeline; tokens are CSS variables referenced by Tailwind via HSL.
+  - Dark mode is class-based (`darkMode: ['class']`).
+
+### Component Library
+
+- **Location**
+  - shadcn/ui components live in `frontend/src/components/ui` (e.g., `button.tsx`, `dialog.tsx`, `dropdown-menu.tsx`, etc.).
+
+- **Architecture**
+  - Components wrap Radix primitives and style with Tailwind. Variants use `class-variance-authority (cva)` and `cn` utility.
+```7:15:frontend/src/components/ui/button.tsx
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  {
+    variants: {
+      variant: {
+        default:
+          "bg-primary text-primary-foreground shadow hover:bg-primary/90",
+        destructive:
+          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+```
+```1:9:frontend/src/components/ui/dialog.tsx
+"use client"
+
+import * as React from "react"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { X } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+const Dialog = DialogPrimitive.Root
+```
+
+- **Documentation**
+  - No Storybook; reference shadcn/ui docs. `components.json` tracks shadcn config and aliases.
+```1:12:frontend/components.json
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind.config.js",
+    "css": "src/app/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+```
+
+### Frameworks & Libraries
+
+- **UI framework**: React + Next.js App Router (Next 14).
+- **Styling**: Tailwind CSS + `tailwindcss-animate` plugin; shadcn/ui; Radix UI primitives; `class-variance-authority` for variants.
+- **Build/bundler**: Next.js (SWC), with performance optimizations enabled.
+```1:17:frontend/next.config.js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
+  // Skip static generation for pages that require runtime environment variables
+  skipTrailingSlashRedirect: true,
+  // Disable static generation for all pages (they'll be server-side rendered)
+  trailingSlash: false,
+  // App Router is now stable in Next.js 14, no experimental config needed
+  images: {
+    domains: ['avatars.githubusercontent.com', 'lh3.googleusercontent.com'],
+  },
+  // Build optimizations
+  swcMinify: true, // Use SWC for minification (faster than Terser)
+  compress: true, // Enable gzip compression
+  poweredByHeader: false, // Remove X-Powered-By header
+  generateEtags: false, // Disable ETag generation for better performance
+  async headers() {
+    return [
+```
+
+### Asset Management
+
+- **Storage & references**
+  - No `public/` assets currently; icons via `lucide-react`. Remote avatars allowed via Next Image domains in config.
+  - If adding assets, place under `frontend/public` and reference with `/path`.
+
+- **Optimization**
+  - Enabled SWC minification, gzip compression, tree-shaking, and chunk splitting.
+```49:69:frontend/next.config.js
+  webpack: (config, { dev, isServer }) => {
+    // Production optimizations only
+    if (!dev && !isServer) {
+      // Enable tree shaking
+      config.optimization.usedExports = true;
+      config.optimization.sideEffects = false;
+      
+      // Split chunks for better caching
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all',
+          },
+        },
+      };
+    }
+    
+    return config;
+  },
+```
+
+- **CDN**
+  - None configured. Compatible with Vercel; consider enabling Next/Image and CDN caching if adding media.
+
+### Icon System
+
+- **Library**: `lucide-react` with named imports.
+- **Usage pattern**
+```1:5:frontend/src/components/ui/dropdown-menu.tsx
+"use client"
+
+import * as React from "react"
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
+import { Check, ChevronRight, Circle } from "lucide-react"
+```
+- **Conventions**
+  - Use 16px–24px icons; shadcn/ui sets `[&_svg]:size-4` on buttons.
+  - Prefer semantic names; do not re-export icons, import where needed.
+
+### Styling Approach
+
+- **Methodology**: Utility-first Tailwind CSS with tokenized CSS Variables.
+- **Global styles**: Defined in `globals.css`. Provides base and component-level utilities.
+```73:109:frontend/src/app/globals.css
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background;
+  }
+  
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+  }
+  
+  .btn-outline {
+    @apply border border-input hover:bg-accent hover:text-accent-foreground;
+  }
+  
+  .btn-sm {
+    @apply h-9 px-3;
+  }
+  
+  .btn-md {
+    @apply h-10 py-2 px-4;
+  }
+  
+  .btn-lg {
+    @apply h-11 px-8;
+  }
+  
+  .input {
+    @apply flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  
+  .card {
+    @apply rounded-lg border bg-card text-card-foreground shadow-sm;
+  }
+}
+```
+- **Responsive**: Tailwind breakpoints; layout container configured in Tailwind; use `md:`, `lg:` classes per shadcn patterns.
+
+### Project Structure
+
+- **High level**
+  - Next.js App Router structure under `frontend/src/app` with feature pages, and shared UI under `frontend/src/components`.
+```151:169:README.md
+## 📁 Project Structure
+
+```
+
+- **Feature patterns**
+  - Feature pages in `app/dashboard/*`. Reusable building blocks under `components/`.
+  - Utilities in `src/lib` incl. `cn`, formatting, toasts.
+```1:7:frontend/src/lib/utils.ts
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+import toast from 'react-hot-toast'
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+```
+
+### Theming & Dark Mode
+
+- Enable dark mode by toggling `class="dark"` on `<html>` or body. App sets global classes and Inter font in layout.
+```17:25:frontend/src/app/layout.tsx
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en" className="h-full">
+      <body className={`${inter.className} h-full bg-gray-50`}>
+```
+
+### Shadcn/UI Configuration
+
+- Preset: `style: "new-york"`, `baseColor: "neutral"`, aliases for `@/components`, `@/lib`, `@/hooks`, and `@/components/ui`.
+```13:21:frontend/components.json
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
+  "iconLibrary": "lucide"
+```
+
+### Figma-to-Code Mapping Rules
+
+- **Colors**
+  - Map Figma “Semantic Colors” to CSS variables: primary, secondary, accent, destructive, background, foreground, border, input, ring, card/popover pairs.
+  - For charts, map series to `--chart-1..5`.
+
+- **Typography**
+  - Use Inter for UI text, JetBrains Mono for code-like text.
+  - Sizes/weights: leverage Tailwind `text-sm`, `text-base`, `font-semibold`, etc.
+
+- **Spacing & Layout**
+  - Use Tailwind spacing scale. Constrain content with Tailwind `container` (2rem padding, 1400px at 2xl).
+
+- **Components**
+  - Prefer existing shadcn/ui atoms/molecules. Add new ones in `src/components/ui` using Radix primitives + Tailwind + `cva`.
+  - Keep variants minimal and token-driven. Use `cn` to merge classes.
+
+- **Icons**
+  - Use `lucide-react` exclusively. Import icons by name at usage sites.
+
+- **Dark Mode**
+  - Ensure dual tokens for readable contrast. Test by applying `.dark` class.
+
+### Contribution Checklist (Design System)
+
+- Add new tokens to `globals.css` and map in `tailwind.config.js` if needed.
+- Build new UI as shadcn-compatible components under `src/components/ui`.
+- Use `cva` for variants and `cn` for class merging.
+- Keep all colors referencing token variables, not hard-coded hex.
+- If adding images, store under `frontend/public` and, if using `<Image>`, add domains in `next.config.js`.
+
+### MCP Designer Prompt (for Figma integration)
+
+Use this prompt when asking the MCP to generate code from selected Figma nodes:
+
+```text
+Generate React (Next.js App Router, TypeScript) components using shadcn/ui and Tailwind.
+- Style strictly with Tailwind classes mapped to our tokens (hsl(var(--...))).
+- Use our token names: primary, secondary, accent, destructive, background, foreground, border, input, ring, card/popover, chart-1..5; radius via var(--radius).
+- Use Inter font (via next/font) and honor dark mode via .dark token set.
+- Wrap primitives with shadcn/ui components where available (button, input, card, dialog, dropdown, tabs, sheet, table, etc.).
+- Use lucide-react icons by name, size 16–24px as needed.
+- Keep responsive behavior via Tailwind breakpoints; container width 1400px at 2xl with 2rem padding.
+- Do not introduce custom CSS files; only Tailwind utilities and existing token classes.
+- Place new components in src/components/ui with cva variants as necessary.
+```
