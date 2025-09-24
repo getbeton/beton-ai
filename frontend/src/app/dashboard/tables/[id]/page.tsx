@@ -2268,9 +2268,9 @@ export default function TableViewPage() {
             </div>
 
             {/* Execution Summary */}
-            <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950">
-              <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">Execution Summary:</h4>
-              <ul className="text-xs text-blue-700 dark:text-blue-300 mt-1 space-y-1">
+            <div className="p-3 border rounded-lg bg-accent">
+              <h4 className="text-sm font-medium">Execution Summary:</h4>
+              <ul className="text-xs text-muted-foreground mt-1 space-y-1">
                 <li>• Column: {executingColumn?.name}</li>
                 <li>• Scope: {executionScope.replace('_', ' ')}</li>
                 <li>• Integration: {integrations.find(i => i.id === executionIntegrationId)?.name || 'None selected'}</li>

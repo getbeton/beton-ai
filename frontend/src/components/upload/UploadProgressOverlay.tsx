@@ -58,16 +58,16 @@ export const UploadProgressOverlay: React.FC<UploadProgressOverlayProps> = ({
     const IconComponent = stage.icon;
     
     if (status === 'error') {
-      return <AlertCircle className="h-5 w-5 text-red-500" />;
+      return <AlertCircle className="h-5 w-5 text-destructive" />;
     }
     if (status === 'completed') {
-      return <CheckCircle className="h-5 w-5 text-green-500" />;
+      return <CheckCircle className="h-5 w-5 text-green-600" />;
     }
     
     return (
       <IconComponent 
         className={`h-5 w-5 ${
-          status === 'active' ? 'text-blue-500' : 'text-gray-400'
+          status === 'active' ? 'text-primary' : 'text-muted-foreground'
         }`} 
       />
     );
@@ -85,11 +85,11 @@ export const UploadProgressOverlay: React.FC<UploadProgressOverlayProps> = ({
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+          className="bg-background text-foreground rounded-lg shadow-xl max-w-md w-full p-6 border"
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold">
               {progress.status === 'error' ? 'Upload Failed' : 
                progress.status === 'success' ? 'Upload Complete' :
                'Uploading CSV'}
@@ -106,20 +106,20 @@ export const UploadProgressOverlay: React.FC<UploadProgressOverlayProps> = ({
 
           {/* File name */}
           <div className="mb-6">
-            <p className="text-sm text-gray-600 mb-2">File:</p>
-            <p className="font-medium text-gray-900 truncate">{progress.fileName}</p>
+            <p className="text-sm text-muted-foreground mb-2">File:</p>
+            <p className="font-medium truncate">{progress.fileName}</p>
           </div>
 
           {/* Progress bar */}
           {progress.status !== 'error' && (
             <div className="mb-6">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
+              <div className="flex justify-between text-sm text-muted-foreground mb-2">
                 <span>Progress</span>
                 <span>{Math.round(progress.progress)}%</span>
               </div>
               <Progress value={progress.progress} className="h-2" />
               {progress.currentStep && (
-                <p className="text-xs text-gray-500 mt-2">{progress.currentStep}</p>
+                <p className="text-xs text-muted-foreground mt-2">{progress.currentStep}</p>
               )}
             </div>
           )}
@@ -134,11 +134,11 @@ export const UploadProgressOverlay: React.FC<UploadProgressOverlayProps> = ({
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className={`flex items-center space-x-3 p-3 rounded-lg transition-colors ${
-                    status === 'active' ? 'bg-blue-50 border border-blue-200' :
-                    status === 'completed' ? 'bg-green-50 border border-green-200' :
-                    status === 'error' ? 'bg-red-50 border border-red-200' :
-                    'bg-gray-50 border border-gray-200'
+                  className={`flex items-center space-x-3 p-3 rounded-lg transition-colors border ${
+                    status === 'active' ? 'bg-accent border-accent' :
+                    status === 'completed' ? 'bg-green-50 border-green-200' :
+                    status === 'error' ? 'bg-red-50 border-red-200' :
+                    'bg-muted border-border'
                   }`}
                 >
                   <div className="flex-shrink-0">
@@ -146,10 +146,10 @@ export const UploadProgressOverlay: React.FC<UploadProgressOverlayProps> = ({
                   </div>
                   <div className="flex-1">
                     <p className={`text-sm font-medium ${
-                      status === 'active' ? 'text-blue-900' :
+                      status === 'active' ? '' :
                       status === 'completed' ? 'text-green-900' :
                       status === 'error' ? 'text-red-900' :
-                      'text-gray-600'
+                      'text-muted-foreground'
                     }`}>
                       {stage.label}
                     </p>
@@ -158,7 +158,7 @@ export const UploadProgressOverlay: React.FC<UploadProgressOverlayProps> = ({
                     <motion.div
                       animate={{ rotate: 360 }}
                       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"
+                    className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full"
                     />
                   )}
                 </motion.div>

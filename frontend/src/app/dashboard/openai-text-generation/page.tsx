@@ -396,7 +396,7 @@ export default function OpenAITextGenerationPage() {
 
                 {result ? (
                   <div className="space-y-4">
-                    <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="bg-muted p-4 rounded-lg">
                       <div className="whitespace-pre-wrap text-sm">{result.content}</div>
                     </div>
                     

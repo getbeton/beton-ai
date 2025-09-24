@@ -21,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full">
-      <body className={`${inter.className} h-full bg-gray-50`}>
+      <body className={`${inter.className} h-full bg-background text-foreground`}>
         <div className="min-h-full">
           {children}
         </div>
@@ -30,8 +30,8 @@ export default function RootLayout({
           toastOptions={{
             duration: 4000,
             style: {
-              background: '#363636',
-              color: '#fff',
+              background: 'hsl(var(--popover))',
+              color: 'hsl(var(--popover-foreground))',
             },
           }}
         />

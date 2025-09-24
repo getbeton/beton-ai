@@ -309,7 +309,7 @@ export default function IntegrationsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <Badge variant="default" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Healthy</Badge>;
+        return <Badge variant="secondary"><CheckCircle className="h-3 w-3 mr-1 text-green-600" />Healthy</Badge>;
       case 'unhealthy':
         return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Unhealthy</Badge>;
       default:
@@ -320,14 +320,14 @@ export default function IntegrationsPage() {
   const getKeySourceBadge = (keySource: string, platformKey?: any) => {
     if (keySource === 'platform') {
       return (
-        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+        <Badge variant="outline" className="bg-accent text-accent-foreground border-border">
           <Shield className="h-3 w-3 mr-1" />
           Platform Key
         </Badge>
       );
     }
     return (
-      <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+      <Badge variant="outline" className="bg-muted text-foreground border-border">
         <Key className="h-3 w-3 mr-1" />
         Personal Key
       </Badge>

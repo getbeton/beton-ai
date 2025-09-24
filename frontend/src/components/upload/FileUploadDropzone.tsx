@@ -72,7 +72,7 @@ export const FileUploadDropzone: React.FC<FileUploadDropzoneProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-blue-50/90 border-2 border-dashed border-blue-300 rounded-lg flex items-center justify-center z-50"
+            className="absolute inset-0 bg-accent/90 border-2 border-dashed border-primary rounded-lg flex items-center justify-center z-50"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -81,13 +81,13 @@ export const FileUploadDropzone: React.FC<FileUploadDropzoneProps> = ({
               transition={{ duration: 0.2, delay: 0.1 }}
               className="text-center"
             >
-              <div className="mx-auto h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
-                <FileSpreadsheet className="h-8 w-8 text-blue-600" />
+              <div className="mx-auto h-16 w-16 rounded-full bg-accent flex items-center justify-center mb-4">
+                <FileSpreadsheet className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="text-xl font-semibold text-blue-700 mb-2">
+              <h3 className="text-xl font-semibold text-foreground mb-2">
                 Drop CSV file here
               </h3>
-              <p className="text-blue-600">
+              <p className="text-muted-foreground">
                 Create a new table from your CSV data
               </p>
             </motion.div>

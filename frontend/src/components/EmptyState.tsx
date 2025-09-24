@@ -34,10 +34,10 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onFileUpload }) => {
             border-2 border-dashed rounded-lg p-8 sm:p-12 text-center cursor-pointer
             transition-all duration-200 ease-in-out
             ${isDragActive && !isDragReject
-              ? 'border-blue-500 bg-blue-50'
+              ? 'border-primary bg-accent'
               : isDragReject
               ? 'border-red-500 bg-red-50'
-              : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+              : 'border-border hover:bg-accent'
             }
           `}
         >
@@ -45,7 +45,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onFileUpload }) => {
           
           {/* Upload Icon */}
           <div className="flex justify-center mb-6">
-            <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-gray-100 flex items-center justify-center">
+            <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-muted flex items-center justify-center">
               {isDragActive ? (
                 <FileSpreadsheet className="h-10 w-10 sm:h-12 sm:w-12 text-blue-600" />
               ) : (
@@ -100,7 +100,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onFileUpload }) => {
         {/* Additional Features Preview */}
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div className="p-4">
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
+            <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center mx-auto mb-2">
               <FileSpreadsheet className="h-4 w-4 text-blue-600" />
             </div>
             <h4 className="font-medium text-gray-900 mb-1">Smart Detection</h4>
@@ -108,7 +108,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onFileUpload }) => {
           </div>
           
           <div className="p-4">
-            <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
+            <div className="h-8 w-8 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-2">
               <Upload className="h-4 w-4 text-green-600" />
             </div>
             <h4 className="font-medium text-gray-900 mb-1">Fast Upload</h4>

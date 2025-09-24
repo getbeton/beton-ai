@@ -103,7 +103,7 @@ export const TableCellRenderer: React.FC<TableCellRendererProps> = ({
     case 'url':
       if (value && value.startsWith('http')) {
         return (
-          <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+          <a href={value} target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-4 hover:underline">
             {value}
           </a>
         );
@@ -113,7 +113,7 @@ export const TableCellRenderer: React.FC<TableCellRendererProps> = ({
     case 'email':
       if (value && value.includes('@')) {
         return (
-          <a href={`mailto:${value}`} className="text-blue-600 hover:underline">
+          <a href={`mailto:${value}`} className="text-primary underline-offset-4 hover:underline">
             {value}
           </a>
         );

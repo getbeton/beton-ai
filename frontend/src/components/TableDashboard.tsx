@@ -717,7 +717,7 @@ export default function TableDashboard() {
     <Card className="border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors">
       <CardContent className="p-6">
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+          <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
             <FileSpreadsheet className="h-6 w-6 text-gray-600" />
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -835,7 +835,7 @@ export default function TableDashboard() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-gray-100"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-accent"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -870,7 +870,7 @@ export default function TableDashboard() {
           <Button
             variant="outline"
             onClick={bulkSelection.toggleBulkMode}
-            className={`w-full sm:w-auto ${bulkSelection.isSelecting ? "bg-blue-50 text-blue-700 border-blue-300" : ""}`}
+            className={`w-full sm:w-auto ${bulkSelection.isSelecting ? "bg-accent text-accent-foreground border-border" : ""}`}
           >
             <CheckSquare className="mr-2 h-4 w-4" />
             {bulkSelection.isSelecting ? 'Cancel Selection' : 'Select Tables'}
@@ -879,7 +879,7 @@ export default function TableDashboard() {
 
         {/* Select All Section - Only show when in bulk selection mode */}
         {bulkSelection.isSelecting && filteredTables.length > 0 && (
-          <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center space-x-3 p-4 bg-accent rounded-lg border border-border">
             <Checkbox
               checked={bulkSelection.isAllSelected}
               data-indeterminate={bulkSelection.isIndeterminate}

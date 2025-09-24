@@ -160,8 +160,8 @@ export function MainNavigation() {
                       className={cn(
                         "flex h-9 items-center px-3 gap-2",
                         active && "bg-accent",
-                        item.isPrimary && !active && "hover:bg-blue-50 hover:text-blue-700",
-                        item.isPrimary && active && "bg-blue-600 hover:bg-blue-700 text-white"
+                        item.isPrimary && !active && "hover:bg-accent hover:text-accent-foreground",
+                        item.isPrimary && active && "bg-primary hover:bg-primary/90 text-primary-foreground"
                       )}
                     >
                       <Icon className={cn(

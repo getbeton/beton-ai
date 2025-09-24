@@ -101,19 +101,19 @@ export const TableRowComponent: React.FC<TableRowComponentProps> = ({
     switch (source) {
       case 'CSV':
         return (
-          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+          <Badge variant="outline" className="bg-accent text-accent-foreground border-border">
             CSV
           </Badge>
         );
       case 'Apollo':
         return (
-          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+          <Badge variant="outline" className="bg-green-50 text-green-800 border-green-200">
             Apollo
           </Badge>
         );
       case 'Manual':
         return (
-          <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
+          <Badge variant="outline" className="bg-muted text-foreground border-border">
             Manual
           </Badge>
         );
@@ -127,7 +127,7 @@ export const TableRowComponent: React.FC<TableRowComponentProps> = ({
     const baseClasses = "hover:bg-muted/50 transition-colors relative";
     
     if (isSelected) {
-      return `${baseClasses} bg-blue-50 hover:bg-blue-100`;
+      return `${baseClasses} bg-accent hover:bg-accent`;
     }
     
     if (table.status === "error") {
@@ -245,7 +245,7 @@ export const TableRowComponent: React.FC<TableRowComponentProps> = ({
       {/* Processing Overlay */}
       {isProcessing && (
         <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
-          <div className="flex items-center space-x-2 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+          <div className="flex items-center space-x-2 bg-accent px-3 py-1 rounded-full border border-border">
             <Clock className="h-4 w-4 text-blue-500 animate-pulse" />
             <span className="text-sm font-medium text-blue-700">
               {table.status === 'importing' ? 'Importing Data...' : 'Processing...'}

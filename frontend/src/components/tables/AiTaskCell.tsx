@@ -186,7 +186,7 @@ export const AiTaskCell: React.FC<AiTaskCellProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 p-2 bg-blue-50 rounded min-h-[2rem]">
+      <div className="flex items-center gap-2 p-2 bg-accent rounded min-h-[2rem]">
         <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
         <span className="text-sm text-blue-600">Generating...</span>
       </div>
@@ -205,7 +205,7 @@ export const AiTaskCell: React.FC<AiTaskCellProps> = ({
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/5 rounded">
             <button
               onClick={handleExecuteCell}
-              className="flex items-center gap-1 text-xs text-green-600 bg-green-50 hover:bg-green-100 px-2 py-1 rounded shadow-sm transition-colors"
+              className="flex items-center gap-1 text-xs text-green-700 bg-green-50 hover:bg-green-100 px-2 py-1 rounded shadow-sm transition-colors"
               title="Execute AI task for this cell"
             >
               <Play className="h-3 w-3" />
@@ -281,7 +281,7 @@ export const AiTaskCell: React.FC<AiTaskCellProps> = ({
                 {onExecuteCell && rowId && columnId && (
                   <button
                     onClick={handleExecuteCell}
-                    className="flex items-center gap-1 text-xs text-green-600 bg-green-50 hover:bg-green-100 px-2 py-1 rounded shadow-sm transition-colors"
+                    className="flex items-center gap-1 text-xs text-green-700 bg-green-50 hover:bg-green-100 px-2 py-1 rounded shadow-sm transition-colors"
                     title="Execute AI task for this cell"
                   >
                     <Play className="h-3 w-3" />
@@ -303,7 +303,7 @@ export const AiTaskCell: React.FC<AiTaskCellProps> = ({
                 {onExecuteCell && rowId && columnId && (
                   <button
                     onClick={handleExecuteCell}
-                    className="flex items-center gap-1 text-xs text-green-600 bg-green-50 hover:bg-green-100 px-2 py-1 rounded shadow-sm transition-colors"
+                    className="flex items-center gap-1 text-xs text-green-700 bg-green-50 hover:bg-green-100 px-2 py-1 rounded shadow-sm transition-colors"
                     title="Execute AI task for this cell"
                   >
                     <Play className="h-3 w-3" />
