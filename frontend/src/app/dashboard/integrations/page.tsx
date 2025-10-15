@@ -55,8 +55,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import MainNavigation from '@/components/navigation/MainNavigation';
-import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation';
+import DashboardShell from '@/components/layout/DashboardShell';
 
 const AVAILABLE_SERVICES = [
   {
@@ -346,30 +345,18 @@ export default function IntegrationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50">
+    <DashboardShell
+      title="Integrations"
+      description="Manage your API integrations and monitor their health status"
+      showBreadcrumb={true}
+      breadcrumbSegments={[
+        { label: 'Dashboard', href: '/dashboard' },
+        { label: 'Integrations', href: '/dashboard/integrations' },
+      ]}
+    >
       <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-      
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <MainNavigation />
-          </div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
-        {/* Breadcrumb Navigation */}
-        <div className="mb-6">
-          <BreadcrumbNavigation customSegments={[
-            { label: 'Dashboard', href: '/dashboard' },
-            { label: 'Integrations', href: '/dashboard/integrations' }
-          ]} />
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-3 mb-8">
+      <div className="grid gap-4 md:grid-cols-3 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Integrations</CardTitle>
@@ -738,9 +725,8 @@ export default function IntegrationsPage() {
                 ))}
               </div>
             )}
-          </CardContent>
+        </CardContent>
         </Card>
-      </main>
-    </div>
+    </DashboardShell>
   );
-} 
+}

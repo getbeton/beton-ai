@@ -24,17 +24,9 @@ Your services will be **completely independent** with:
 4. **Root Directory**: `/frontend`
 5. Railway will detect and use `frontend/Dockerfile`
 
-### Step 3: Create Mock Apollo Service
-1. In same Railway project, click "+" → "GitHub Repo"
-2. Select the same `beton-ai` repository
-3. **Service Name**: `beton-ai-mock-apollo`
-4. **Root Directory**: `/mock-apollo`
-5. Railway will detect and use `mock-apollo/Dockerfile`
-
-### Step 4: Add Shared Databases
-1. **PostgreSQL (Main)**: Click "+" → "Database" → "Add PostgreSQL"
-2. **PostgreSQL (Mock)**: Click "+" → "Database" → "Add PostgreSQL" → Name: "MockDB"  
-3. **Redis**: Click "+" → "Database" → "Add Redis"
+### Step 3: Add Shared Databases
+1. **PostgreSQL**: Click "+" → "Database" → "Add PostgreSQL"
+2. **Redis**: Click "+" → "Database" → "Add Redis"
 
 ## 🔧 Service Configuration
 
@@ -58,46 +50,14 @@ JWT_SECRET=your-super-secret-jwt-key-minimum-32-chars
 PORT=3001
 NODE_ENV=production
 
-# Inter-service Communication (Railway provides internal URLs)
-MOCK_APOLLO_SERVICE_URL=https://${{MockApollo.RAILWAY_PRIVATE_DOMAIN}}
-
-# Performance Settings
-APOLLO_MODE=mixed
-BULK_DOWNLOAD_WARNING_THRESHOLD=1000
-MAX_CONCURRENT_JOBS_PER_USER=2
-```
-
-### Frontend Service Environment Variables
-```bash
-# Supabase (same as backend)
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# Backend API (Railway provides the URL)
-NEXT_PUBLIC_API_URL=https://${{Backend.RAILWAY_STATIC_URL}}
-NEXT_PUBLIC_WS_URL=https://${{Backend.RAILWAY_STATIC_URL}}/ws
-
-# Next.js Config
-NODE_ENV=production
-PORT=3000
-```
-
-### Mock Apollo Service Environment Variables
-```bash
-# Separate Database
-DATABASE_URL=${{MockDB.DATABASE_URL}}
-
-# Service Config  
-NODE_ENV=production
-PORT=3002
-```
+# Apollo API Base URL (optional override if you proxy requests)
+APOLLO_BASE_URL=https://api.apollo.io
 
 ## 🌐 Service URLs After Deployment
 
 Each service gets its own domain:
 - **Frontend**: `https://beton-ai-frontend-production.up.railway.app`
 - **Backend API**: `https://beton-ai-backend-production.up.railway.app`  
-- **Mock Apollo**: `https://beton-ai-mock-apollo-production.up.railway.app`
 
 ## 💡 Benefits of This Architecture
 
@@ -115,7 +75,6 @@ git push origin main
 ### 📊 Independent Scaling
 - **Backend**: Can scale to handle API load independently
 - **Frontend**: Can scale for high traffic independently
-- **Mock Apollo**: Scales based on development needs
 
 ### 🛡️ Fault Isolation
 - Frontend issues don't affect backend API
@@ -127,7 +86,6 @@ git push origin main
 |---------|-----------|--------------|
 | Backend | $5/month | Per request |
 | Frontend | $5/month | Per visitor |
-| Mock Apollo | $5/month | Minimal |
 | PostgreSQL | $5/month | Per GB |
 | Redis | $3/month | Per GB |
 
@@ -193,11 +151,6 @@ Each service has independent:
 - [ ] Authentication flow working
 - [ ] Environment variables loaded
 - [ ] Routing working correctly
-
-### Mock Apollo Service
-- [ ] Database seeded with 100K entities
-- [ ] Health endpoint responding
-- [ ] Backend can connect to mock service
 
 ## 🆘 Troubleshooting
 

@@ -19,26 +19,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  mock-postgres:
-    image: postgres:15-alpine
-    container_name: beton-ai-mock-postgres
-    environment:
-      POSTGRES_DB: mock_apollo
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-    ports:
-      - "5433:5432"
-    volumes:
-      - mock_postgres_data:/var/lib/postgresql/data
-    networks:
-      - beton-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    restart: unless-stopped
-
   redis:
     image: redis:7-alpine
     container_name: beton-ai-redis
@@ -69,8 +49,6 @@ services:
       REDIS_PORT: 6379
       DOCKER_ENV: "true"
       NODE_ENV: production
-      # Override for Docker environment - use container hostname
-      MOCK_APOLLO_SERVICE_URL: http://mock-apollo:3002
     ports:
       - "3001:3001"
     depends_on:
@@ -105,34 +83,8 @@ services:
       - beton-network
     restart: unless-stopped
 
-  mock-apollo:
-    build:
-      context: ./mock-apollo
-      dockerfile: Dockerfile
-      target: production
-    container_name: beton-ai-mock-apollo
-    command: "./setup.sh"
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres123@mock-postgres:5432/mock_apollo
-      NODE_ENV: production
-      PORT: 3002
-    ports:
-      - "3002:3002"
-    depends_on:
-      mock-postgres:
-        condition: service_healthy
-    networks:
-      - beton-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-
 volumes:
   postgres_data:
-  mock_postgres_data:
   redis_data:
 
 networks:

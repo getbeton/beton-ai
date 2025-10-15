@@ -10,16 +10,13 @@ const router = Router();
 router.get('/config', async (req: AuthenticatedRequest, res) => {
   try {
     const config = ApolloRouter.getCurrentConfig();
-    
-    // Add service health checks
-    const mockServiceHealth = await ApolloRouter.checkMockServiceHealth();
-    
+
     res.json({
       success: true,
       data: {
         ...config,
         serviceHealth: {
-          mockService: mockServiceHealth ? 'healthy' : 'unhealthy'
+          realService: 'healthy'
         }
       }
     });
@@ -37,24 +34,24 @@ router.get('/config', async (req: AuthenticatedRequest, res) => {
  */
 router.put('/config/mode', async (req: AuthenticatedRequest, res) => {
   try {
-    const { mode } = req.body; // 'mock' | 'real' | 'mixed'
-    
-    if (!['mock', 'real', 'mixed'].includes(mode)) {
+    const { mode } = req.body; // 'real'
+
+    if (mode !== 'real') {
       return res.status(400).json({
         success: false,
-        error: 'Invalid mode. Must be one of: mock, real, mixed'
+        error: 'Invalid mode. Apollo integration only supports real mode'
       });
     }
     
     // Update environment variable for runtime
-    process.env.APOLLO_MODE = mode;
+    process.env.APOLLO_MODE = 'real';
     
-    console.log(`🔧 Apollo mode updated to: ${mode}`);
+    console.log('🔧 Apollo mode locked to real');
     
     res.json({
       success: true,
-      message: `Apollo mode updated to: ${mode}`,
-      data: { mode }
+      message: 'Apollo mode is locked to real API usage',
+      data: { mode: 'real' }
     });
   } catch (error: any) {
     console.error('Error updating Apollo mode:', error);
@@ -70,25 +67,25 @@ router.put('/config/mode', async (req: AuthenticatedRequest, res) => {
  */
 router.put('/config/endpoint', async (req: AuthenticatedRequest, res) => {
   try {
-    const { endpoint, mode } = req.body; // endpoint: string, mode: 'mock' | 'real'
-    
-    if (!['mock', 'real'].includes(mode)) {
+    const { endpoint, mode } = req.body; // endpoint: string, mode: 'real'
+
+    if (mode !== 'real') {
       return res.status(400).json({
         success: false,
-        error: 'Invalid mode. Must be one of: mock, real'
+        error: 'Invalid mode. Apollo endpoints only support real mode'
       });
     }
     
     // Set environment variable for specific endpoint
     const envKey = `APOLLO_${endpoint.replace(/[^A-Z]/g, '_').replace(/__+/g, '_').toUpperCase()}_MODE`;
-    process.env[envKey] = mode;
+    process.env[envKey] = 'real';
     
-    console.log(`🔧 Apollo endpoint ${endpoint} mode updated to: ${mode}`);
+    console.log(`🔧 Apollo endpoint ${endpoint} locked to real mode`);
     
     res.json({
       success: true,
-      message: `Apollo endpoint ${endpoint} mode updated to: ${mode}`,
-      data: { endpoint, mode, envKey }
+      message: `Apollo endpoint ${endpoint} mode locked to real`,
+      data: { endpoint, mode: 'real', envKey }
     });
   } catch (error: any) {
     console.error('Error updating Apollo endpoint mode:', error);

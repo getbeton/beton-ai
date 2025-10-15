@@ -37,7 +37,10 @@ Thank you for your interest in contributing to Beton-AI! This document provides 
    ```bash
    # Run linting
    cd frontend && npm run lint
-   cd backend && npm run type-check
+   cd backend && npm run lint
+   
+   # Build to check for errors
+   npm run build
    
    # Test the application manually
    ./dev.sh
@@ -57,7 +60,10 @@ Thank you for your interest in contributing to Beton-AI! This document provides 
 - Use meaningful component and variable names
 - Add proper TypeScript types for props and state
 - Use TailwindCSS for styling
+- Use COSS UI components from `components/ui/`
+- Add PostHog analytics tracking for new user interactions
 - Follow the component structure in existing files
+- Use the AppShell/DashboardShell layout system
 
 #### Backend (Express + TypeScript)
 - Use async/await instead of callbacks
@@ -66,6 +72,9 @@ Thank you for your interest in contributing to Beton-AI! This document provides 
 - Follow RESTful API conventions
 - Add proper TypeScript interfaces
 - Use meaningful function and variable names
+- Run ESLint before committing (`npm run lint`)
+- Add logging for debugging and monitoring
+- Use Bull Queue for background jobs
 
 #### Database (Prisma)
 - Follow existing schema naming conventions
@@ -154,16 +163,26 @@ beton-ai/
 ├── backend/              # Express.js API
 │   ├── src/
 │   │   ├── routes/      # API endpoints
-│   │   ├── middleware/  # Custom middleware
-│   │   ├── types/       # TypeScript definitions
-│   │   └── services/    # Business logic
-│   └── prisma/          # Database schema
+│   │   ├── middleware/  # Custom middleware (auth, error handling)
+│   │   ├── services/    # Business logic (Apollo, OpenAI, Findymail)
+│   │   ├── queues/      # Bull Queue jobs
+│   │   ├── workers/     # Background job workers
+│   │   ├── config/      # Configuration files
+│   │   └── types/       # TypeScript definitions
+│   └── prisma/          # Database schema and migrations
 ├── frontend/            # Next.js application
 │   ├── src/
 │   │   ├── app/        # App router pages
 │   │   ├── components/ # Reusable components
-│   │   └── lib/        # Utilities and configs
-└── docs/               # Documentation
+│   │   │   ├── ui/    # COSS UI components
+│   │   │   ├── layout/ # AppShell, DashboardShell
+│   │   │   ├── dashboard/ # Dashboard components
+│   │   │   ├── navigation/ # Navigation components
+│   │   │   └── upload/ # File upload components
+│   │   ├── lib/       # Utilities and configs (analytics, posthog, etc.)
+│   │   ├── hooks/     # Custom React hooks
+│   │   └── types/     # TypeScript definitions
+└── prd/               # Product requirement documents
 ```
 
 ## 🧪 Testing Guidelines

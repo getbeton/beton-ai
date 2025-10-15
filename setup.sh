@@ -52,12 +52,6 @@ setup_env_files() {
         rm -f frontend/.env.local.bak
     fi
     
-    # Mock Apollo .env setup
-    if [ ! -f "mock-apollo/.env" ]; then
-        echo "🔧 Configuring mock-apollo/.env"
-        cp mock-apollo/env.example mock-apollo/.env
-    fi
-    
     echo "✅ Environment files configured!"
 }
 
@@ -103,13 +97,11 @@ while [ $attempt -lt $max_attempts ]; do
     
     # Check each service
     $COMPOSE_CMD ps | grep -q "beton-ai-postgres.*healthy" && ((healthy_count++))
-    $COMPOSE_CMD ps | grep -q "beton-ai-mock-postgres.*healthy" && ((healthy_count++))
     $COMPOSE_CMD ps | grep -q "beton-ai-redis.*healthy" && ((healthy_count++))
     $COMPOSE_CMD ps | grep -q "beton-ai-backend.*\(healthy\|running\)" && ((healthy_count++))
     $COMPOSE_CMD ps | grep -q "beton-ai-frontend.*\(healthy\|running\)" && ((healthy_count++))
-    $COMPOSE_CMD ps | grep -q "beton-ai-mock-apollo.*\(healthy\|running\)" && ((healthy_count++))
     
-    if [ "$healthy_count" -lt 6 ]; then
+    if [ "$healthy_count" -lt 4 ]; then
         echo -n "."
         sleep 2
         attempt=$((attempt + 1))
@@ -130,22 +122,16 @@ echo "🔄 Deploying backend migrations..."
 $COMPOSE_CMD exec -T backend sh -c "npx prisma migrate deploy 2>/dev/null || npx prisma db push --accept-data-loss" || true
 echo "✅ Backend migrations completed"
 
-# Deploy mock-apollo migrations
-echo "🔄 Deploying mock-apollo migrations..."
-$COMPOSE_CMD exec -T mock-apollo sh -c "npx prisma migrate deploy 2>/dev/null || npx prisma db push --accept-data-loss" || true
-echo "✅ Mock Apollo migrations completed"
-
+# Notify completion
 echo ""
 echo "🎉 Setup Complete!"
 echo "Services are ready at:"
 echo "📱 Frontend:     http://localhost:3000"
 echo "🔧 Backend API:  http://localhost:3001"
-echo "🎭 Mock Apollo:  http://localhost:3002"
 echo ""
 echo "🏥 Health Checks:"
 echo "   Frontend:     http://localhost:3000/api/health"
 echo "   Backend:      http://localhost:3001/health"
-echo "   Mock Apollo:  http://localhost:3002/health"
 echo ""
 echo "📊 To view logs:           $COMPOSE_CMD logs -f"
 echo "🛑 To stop services:       $COMPOSE_CMD down"

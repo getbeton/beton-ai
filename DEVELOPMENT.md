@@ -115,3 +115,72 @@ cd frontend && rm -rf .next
 # Reinstall dependencies
 cd frontend && rm -rf node_modules && npm ci
 ``` 
+
+## ☁️ Railway Deployments (Local Only)
+
+Use the Railway CLI strictly on your local machine to inspect remote deployments. Do not commit any Railway CLI artifacts or configuration files.
+
+### Install the Railway CLI
+- **Homebrew** (preferred on macOS): `brew install railwayapp/tap/railway`
+- **Installer script** (fallback): `curl -fsSL https://railway.app/install.sh | sh`
+
+Verify the binary is on your `PATH` and up to date:
+
+```bash
+railway --version
+```
+
+### Authenticate Locally
+
+```bash
+# Opens your browser to complete login; stores credentials in ~/.railway
+railway login
+
+# Confirm which account is active
+railway whoami
+```
+
+Credentials never leave your workstation. If you script access tokens, store them in your password manager—never in the repository.
+
+### Link to an Existing Deployment
+1. In the Railway dashboard, copy the project ID and environment name you need to inspect.
+2. In the repo root, link your local checkout (creates a `.railway` directory—keep it untracked).
+
+```bash
+railway link --project <project_id> --environment <env_name>
+
+# Optional: verify the linked services
+railway status
+```
+
+To unlink when finished, run `railway unlink`.
+
+### Tail Logs for Troubleshooting
+
+```bash
+# Stream all services in the linked environment
+railway logs --environment <env_name>
+
+# Narrow to a single service (e.g. backend)
+railway logs --service backend --environment <env_name>
+
+# Fetch historical logs if needed
+railway logs --service backend --since 1h
+```
+
+Pipe or redirect the output locally if you need to save a snapshot:
+
+```bash
+railway logs --service backend --since 1h > ~/Desktop/backend-railway.log
+```
+
+Always unlink or sign out when you finish a debugging session:
+
+```bash
+railway unlink
+railway logout
+```
+
+### Keep Railway Files Local
+
+Add `.railway/`, `railway.json`, and other CLI artifacts to your global or workspace `.gitignore`. Confirm `git status` stays clean before committing.

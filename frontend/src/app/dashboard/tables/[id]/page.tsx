@@ -34,6 +34,8 @@ import toast, { Toaster } from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { TableStats } from '@/components/tables/TableStats';
+import DashboardShell from '@/components/layout/DashboardShell';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
@@ -68,7 +70,6 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation';
 
 const COLUMN_TYPES = [
   { value: 'text', label: 'Text', icon: '📝' },
@@ -1067,9 +1068,9 @@ export default function TableViewPage() {
               <p className="text-muted-foreground mb-4">
                 The table you're looking for doesn't exist or you don't have access to it.
               </p>
-              <Button onClick={() => router.push('/dashboard/tables')}>
+              <Button onClick={() => router.push('/dashboard')}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Tables
+                Back to Dashboard
               </Button>
             </div>
           </CardContent>
@@ -1079,7 +1080,17 @@ export default function TableViewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50">
+    <DashboardShell
+      title={table.name}
+      description={table.description || 'No description'}
+      tableName={table.name}
+      actions={
+        <Button variant="outline" onClick={handleExportCSV}>
+          <Download className="h-4 w-4 mr-2" />
+          Export CSV
+        </Button>
+      }
+    >
       <Head>
         <title>{table.name} - Table Details - Beton-AI</title>
         <meta name="description" content={`View and manage data in ${table.name} table. ${table.description || 'Edit table structure, add rows, and manage data.'}`} />
@@ -1087,80 +1098,15 @@ export default function TableViewPage() {
       
       <Toaster position="top-right" />
 
-      {/* Breadcrumb Navigation */}
-      <div className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
-          <BreadcrumbNavigation tableName={table.name} />
+      <div className="space-y-6">
+        {/* Header with Stats */}
+        <div className="flex items-center justify-end">
+          <TableStats 
+            columns={table.columns?.length || 0}
+            totalRows={table.totalRows || 0}
+            selectedRows={selectedRows.size}
+          />
         </div>
-      </div>
-      
-      <div className="container mx-auto px-4 py-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push('/dashboard/tables')}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Tables
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold flex items-center gap-2">
-                <TableIcon className="h-8 w-8" />
-                {table.name}
-              </h1>
-              <p className="text-muted-foreground">
-                {table.description || 'No description'}
-              </p>
-            </div>
-          </div>
-        
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleExportCSV}>
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
-        </div>
-      </div>
-
-      {/* Table Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <div className="text-2xl font-bold">{table.columns?.length || 0}</div>
-                <div className="text-sm text-muted-foreground">Columns</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <TableIcon className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <div className="text-2xl font-bold">{table.totalRows || 0}</div>
-                <div className="text-sm text-muted-foreground">Total Rows</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <div className="text-2xl font-bold">{selectedRows.size}</div>
-                <div className="text-sm text-muted-foreground">Selected</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Toolbar */}
       <div className="space-y-4">
@@ -2312,6 +2258,6 @@ export default function TableViewPage() {
         </DialogContent>
       </Dialog>
       </div>
-    </div>
+    </DashboardShell>
   );
 } 

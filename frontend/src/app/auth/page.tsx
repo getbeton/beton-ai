@@ -95,8 +95,8 @@ export default function AuthPage() {
                 theme: ThemeSupa,
                 style: {
                   button: {
-                    background: 'hsl(var(--primary))',
-                    color: 'hsl(var(--primary-foreground))',
+                    background: 'var(--primary)',
+                    color: 'var(--primary-foreground)',
                     borderRadius: 'calc(var(--radius) - 2px)',
                     border: 'none',
                     padding: '12px 16px',
@@ -106,7 +106,7 @@ export default function AuthPage() {
                     transition: 'all 0.2s',
                   },
                   anchor: {
-                    color: 'hsl(var(--primary))',
+                    color: 'var(--primary)',
                     textDecoration: 'none',
                     fontSize: '14px',
                   },
@@ -146,13 +146,13 @@ export default function AuthPage() {
                 variables: {
                   default: {
                     colors: {
-                      brand: 'hsl(var(--primary))',
-                      brandAccent: 'hsl(var(--primary))',
-                      inputBackground: 'hsl(var(--background))',
-                      inputText: 'hsl(var(--foreground))',
-                      inputBorder: 'hsl(var(--border))',
-                      inputBorderHover: 'hsl(var(--border))',
-                      inputBorderFocus: 'hsl(var(--primary))',
+                      brand: 'var(--primary)',
+                      brandAccent: 'var(--primary)',
+                      inputBackground: 'var(--background)',
+                      inputText: 'var(--foreground)',
+                      inputBorder: 'var(--border)',
+                      inputBorderHover: 'var(--border)',
+                      inputBorderFocus: 'var(--primary)',
                     },
                     space: {
                       spaceSmall: '8px',

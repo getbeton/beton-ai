@@ -34,6 +34,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import DashboardShell from '@/components/layout/DashboardShell';
 import { 
   Select, 
   SelectContent, 
@@ -747,43 +748,30 @@ export default function ApolloSearchPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <DashboardShell
+      title="Apollo People Search"
+      description="Search for people using Apollo's powerful database"
+      actions={
+        <Select value={selectedIntegration} onValueChange={setSelectedIntegration}>
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="Select Apollo Integration" />
+          </SelectTrigger>
+          <SelectContent>
+            {apolloIntegrations.map((integration) => (
+              <SelectItem key={integration.id} value={integration.id}>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    integration.healthStatus === 'healthy' ? 'bg-green-500' : 'bg-red-500'
+                  }`} />
+                  {integration.name}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      }
+    >
       <Toaster position="top-right" />
-      
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push('/dashboard')}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <h1 className="text-3xl font-bold">Apollo People Search</h1>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <Select value={selectedIntegration} onValueChange={setSelectedIntegration}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder="Select Apollo Integration" />
-            </SelectTrigger>
-            <SelectContent>
-              {apolloIntegrations.map((integration) => (
-                <SelectItem key={integration.id} value={integration.id}>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      integration.healthStatus === 'healthy' ? 'bg-green-500' : 'bg-red-500'
-                    }`} />
-                    {integration.name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Filters Panel */}
@@ -1525,6 +1513,6 @@ export default function ApolloSearchPage() {
           }}
         />
       )}
-    </div>
+    </DashboardShell>
   );
 } 

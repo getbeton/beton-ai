@@ -4,33 +4,49 @@ An open-source automation platform that helps teams streamline their workflows a
 
 ## 🚀 Tech Stack
 
-- **Frontend**: Next.js 14, TypeScript, TailwindCSS
-- **Backend**: Express.js, TypeScript, Prisma ORM
+- **Frontend**: Next.js 14, TypeScript, TailwindCSS, COSS UI Components
+- **Backend**: Express.js, TypeScript, Prisma ORM, ESLint
 - **Database**: PostgreSQL
+- **Queue System**: Bull Queue with Redis
 - **Authentication**: Supabase (Google, GitHub, Email/Password)
-- **Mock Services**: Standalone Apollo API mock with 100K entities
+- **Analytics**: PostHog for user behavior tracking
+- **Integrations**: Apollo, OpenAI, Findymail APIs
 - **Containerization**: Docker & Docker Compose
+
+### UI Components & Design
+
+Beton-AI uses **COSS UI** components - a modern, accessible component library built on Radix UI primitives. The application features:
+- **Header-based Navigation** - Clean, responsive top navigation (comp-589) with user menu and settings
+- **Consistent Design System** - All UI primitives (buttons, inputs, dialogs, tooltips, etc.) from COSS
+- **Analytics Integration** - Built-in PostHog tracking on interactive components
+- **Accessibility First** - ARIA labels and keyboard navigation throughout
+- **Advanced Table Management** - Powered by @tanstack/react-table with sorting, filtering, and pagination
+- **Toast Notifications** - Sonner library for elegant user feedback
+- **Drag & Drop Uploads** - Modern file upload with progress tracking
 
 ## 📋 Features
 
-- 🔐 **Secure Authentication** - Multiple sign-in options via Supabase
+- 🔐 **Secure Authentication** - Multiple sign-in options via Supabase (Google, GitHub, Email/Password)
 - 🔑 **API Key Management** - Store and manage API keys for various services
-- 🎨 **Modern UI** - Clean, professional interface for both technical and sales teams
-- 🎭 **Mock Apollo Service** - Standalone service with 100K mock entities for development
+- 🎨 **Modern UI** - Header-based navigation with clean, professional interface
+- 📊 **Advanced Table Management** - Import, view, filter, sort, and manage data tables with ease
+- 📁 **CSV Upload** - Drag-and-drop file uploads with real-time progress tracking
+- 📈 **Analytics Dashboard** - PostHog integration for user behavior insights
+- 🤝 **Apollo, OpenAI, Findymail Integrations** - Connect with real APIs via secure key storage
 - 🐳 **Docker Ready** - Full containerization support with automated database setup
-- 🔄 **Real-time Updates** - Dynamic page refreshing after changes
+- 🔄 **Real-time Updates** - WebSocket support and dynamic page refreshing
+- 🔔 **Toast Notifications** - Elegant user feedback with Sonner
+- ⚡ **Background Job Processing** - Bull Queue with Redis for async tasks
 
-## 🎭 Mock Apollo Service
+## 🤝 Apollo Integration
 
-This project includes a standalone Apollo API mock service for development:
+Beton-AI talks directly to Apollo's public API in all environments. The mock Apollo service has been removed in favor of real API integration. 
 
-- **📊 100K Mock Entities** - Pre-seeded with realistic people, organizations, and locations
-- **🔧 Separate Database** - Uses its own `mock_apollo` PostgreSQL database
-- **⚡ Configurable Latency** - Simulates real-world API response times
-- **🔀 Smart Routing** - Backend automatically routes between mock/real Apollo APIs
-- **🚀 Auto-Setup** - Database and data seeding handled automatically
-
-The mock service runs on port 3002 and provides Apollo-compatible endpoints for development without requiring real API keys.
+**How it works:**
+1. Add your Apollo API key securely via the Integrations page
+2. The backend validates your key through Supabase-authenticated routes
+3. All searches use the real Apollo API with your credentials
+4. Background jobs handle bulk downloads with rate limiting and retry logic
 
 ## 🛠️ Development Setup
 
@@ -53,15 +69,13 @@ cd beton-ai
 This script will:
 - ✅ Create all environment files automatically
 - ✅ Install dependencies
-- ✅ Build and start all Docker services
-- ✅ Create separate `mock_apollo` database
-- ✅ Seed 100K mock entities for development
+- ✅ Build and start backend, frontend, PostgreSQL, and Redis services
+- ✅ Run database migrations
 - ✅ Start the complete development environment
 
 **Services will be available at:**
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:3001
-- Mock Apollo: http://localhost:3002
 - PostgreSQL: localhost:5432
 - Redis: localhost:6379
 
@@ -78,7 +92,7 @@ Choose your preferred development mode:
 - **Option 2**: Frontend Dev + Backend Docker (hot reload frontend)
 - **Option 3**: Backend Dev + Frontend Docker (hot reload backend)  
 - **Option 4**: Both Dev (hot reload both services)
-- **Include Mock Apollo**: **Yes** (recommended for development)
+- **Configure Apollo**: Provide your real API key inside the Integrations UI after signing in
 
 ### Manual Environment Setup (Alternative)
 
@@ -152,9 +166,12 @@ docker-compose down
 beton-ai/
 ├── backend/                 # Express.js API server
 │   ├── src/
-│   │   ├── routes/         # API routes
-│   │   ├── middleware/     # Custom middleware
-│   │   ├── services/       # Business logic
+│   │   ├── routes/         # API routes (auth, tables, integrations, etc.)
+│   │   ├── middleware/     # Custom middleware (auth, error handling)
+│   │   ├── services/       # Business logic (Apollo, OpenAI, Findymail)
+│   │   ├── queues/         # Bull Queue jobs (AI tasks, bulk downloads)
+│   │   ├── workers/        # Background job workers
+│   │   ├── config/         # Configuration files
 │   │   └── types/          # TypeScript definitions
 │   ├── prisma/             # Database schema and migrations
 │   └── Dockerfile
@@ -162,10 +179,21 @@ beton-ai/
 │   ├── src/
 │   │   ├── app/           # App router pages
 │   │   ├── components/    # Reusable components
+│   │   │   ├── ui/       # COSS UI components
+│   │   │   ├── layout/   # AppShell, DashboardShell
+│   │   │   ├── dashboard/ # Dashboard-specific components
+│   │   │   ├── navigation/ # Navigation components
+│   │   │   └── upload/   # File upload components
 │   │   ├── lib/          # Utilities and configurations
+│   │   │   ├── analytics.ts    # PostHog helpers
+│   │   │   ├── posthog.ts      # PostHog initialization
+│   │   │   └── tableTransformers.ts # Data transformers
+│   │   ├── hooks/        # Custom React hooks
 │   │   └── types/        # TypeScript definitions
 │   └── Dockerfile
-└── docker-compose.yml     # Multi-container configuration
+├── prd/                    # Product requirement documents
+├── docker-compose.yml      # Multi-container configuration
+└── README.md              # This file
 ```
 
 ## 🔧 Available Scripts
@@ -181,9 +209,31 @@ beton-ai/
 
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:3001
-- **Mock Apollo**: http://localhost:3002
 - **PostgreSQL**: localhost:5432
 - **Redis**: localhost:6379
+
+## 📊 Analytics Integration
+
+Beton-AI uses **PostHog** for analytics and user behavior tracking:
+
+- **Event Tracking** - Captures user interactions across the application
+- **Navigation Analytics** - Tracks page visits and navigation patterns
+- **UI Component Analytics** - Monitors button clicks, form submissions, and component interactions
+- **Privacy First** - Configurable tracking with opt-out support
+
+### PostHog Setup
+
+Add your PostHog API key to the frontend environment:
+
+```env
+NEXT_PUBLIC_POSTHOG_KEY=your_posthog_key
+NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
+```
+
+Analytics helpers are available in `frontend/src/lib/analytics.ts`:
+- `captureUiEvent()` - Track UI interactions
+- `captureNavigation()` - Track navigation events
+- `captureLandingAction()` - Track landing page actions
 
 ## 🗄️ Database Management
 

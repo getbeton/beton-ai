@@ -6,17 +6,16 @@ import { supabase } from '@/lib/supabase';
 import { apiClient, type UserTable } from '@/lib/api';
 import { 
   Search,
-  Upload,
   Plus,
   CheckSquare,
-  X,
-  FileSpreadsheet
+  X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { EmptyState } from './EmptyState';
 import { UploadProgressOverlay } from './upload/UploadProgressOverlay';
 import { FileUploadDropzone } from './upload/FileUploadDropzone';
 import { BulkActionToolbar } from './tables/BulkActionToolbar';
+import { CsvUploadModal } from './upload/CsvUploadModal';
 import { 
   validateCSVFile, 
   generateTableNameFromFile, 
@@ -31,7 +30,6 @@ import {
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { CSVUploadProgress } from '@/types/bulkDownload';
-import { TableRowComponent } from './tables/TableRowComponent';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -44,7 +42,9 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { 
+import AdvancedTablesView from '@/components/dashboard/AdvancedTablesView';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
   Table,
   TableBody,
   TableCell,
@@ -52,7 +52,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
 
 // TableData interface as specified in PRD
 interface TableData {
@@ -76,7 +75,22 @@ interface UploadProgress {
   error?: string;
 }
 
-export default function TableDashboard() {
+type TableDashboardProps = {
+  onRegisterUploadTrigger?: (trigger: (() => void) | null) => void;
+  onSearch?: (value: string) => void;
+};
+
+export default function TableDashboard({
+  onRegisterUploadTrigger,
+  renderEmptyState,
+  onSearchApollo,
+  onConnectWebhook,
+  onSearch,
+}: TableDashboardProps & {
+  renderEmptyState?: () => React.ReactNode;
+  onSearchApollo?: () => void;
+  onConnectWebhook?: () => void;
+}) {
   const [user, setUser] = useState<any>(null);
   const [tables, setTables] = useState<TableData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,8 +105,19 @@ export default function TableDashboard() {
   const [showEmptyMessage, setShowEmptyMessage] = useState(false);
   
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  // Modal visibility flag for CSV uploads - explicitly controlled, never auto-opens
+  // Important: This must stay false on mount to prevent auto-opening
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Ensure modal is closed on mount and track mount state
+  useEffect(() => {
+    setMounted(true);
+    setShowUploadModal(false);
+    return () => setMounted(false);
+  }, []);
 
   // Debounced search effect
   useEffect(() => {
@@ -114,6 +139,10 @@ export default function TableDashboard() {
       table.columns.toString()
     ].join(' ').toLowerCase();
   }, []);
+
+  useEffect(() => {
+    onSearch?.(debouncedSearchQuery);
+  }, [debouncedSearchQuery, onSearch]);
 
   // Enhanced filter logic with advanced search capabilities
   const filteredTables = tables.filter(table => {
@@ -589,6 +618,7 @@ export default function TableDashboard() {
       status: "uploading",
     };
 
+    setShowUploadModal(false);
     setUploadProgress(progress);
     const uploadToastId = createLoadingToast(`Uploading ${file.name}...`);
 
@@ -702,6 +732,52 @@ export default function TableDashboard() {
     </div>
   );
 
+  useEffect(() => {
+    if (!onRegisterUploadTrigger || !mounted) return;
+
+    const trigger = () => {
+      // Only open if component is mounted and not already showing
+      if (mounted && !showUploadModal) {
+        setShowUploadModal(true);
+      }
+    };
+
+    onRegisterUploadTrigger(trigger);
+
+    return () => {
+      onRegisterUploadTrigger(null);
+    };
+  }, [onRegisterUploadTrigger, mounted, showUploadModal]);
+
+  // Provide default empty-state action for CSV uploads when parent doesn't override it.
+  const triggerImportCSV = useCallback(() => {
+    console.info('[TableDashboard] triggerImportCSV invoked, mounted:', mounted);
+    // Only open modal if component is fully mounted
+    if (mounted) {
+      setShowUploadModal(true);
+    }
+  }, [mounted]);
+
+  // Delegate Apollo searches to parent when available, otherwise show a helpful placeholder toast.
+  const triggerSearchApollo = useCallback(() => {
+    console.info('[TableDashboard] triggerSearchApollo invoked');
+    if (onSearchApollo) {
+      onSearchApollo();
+      return;
+    }
+    toast('Apollo.io search will be available soon.');
+  }, [onSearchApollo]);
+
+  // Delegate webhook connections to parent or fall back to a coming-soon notification.
+  const triggerConnectWebhook = useCallback(() => {
+    console.info('[TableDashboard] triggerConnectWebhook invoked');
+    if (onConnectWebhook) {
+      onConnectWebhook();
+      return;
+    }
+    toast('Webhook integrations are coming soon.');
+  }, [onConnectWebhook]);
+
   if (loading) {
     return (
       <FileUploadDropzone onFileUpload={handleFileUpload}>
@@ -712,305 +788,58 @@ export default function TableDashboard() {
     );
   }
 
-  // PRD 4.1: Compact Drop Zone Component for Populated State
-  const CompactDropZone = () => (
-    <Card className="border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors">
-      <CardContent className="p-6">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-            <FileSpreadsheet className="h-6 w-6 text-gray-600" />
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Upload Another CSV
-          </h3>
-          <p className="text-gray-600 text-sm mb-4">
-            Drag and drop a CSV file here, or click to browse
-          </p>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => {
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = '.csv';
-              input.onchange = (e) => {
-                const files = (e.target as HTMLInputElement).files;
-                if (files && files.length > 0) {
-                  handleFileUpload(Array.from(files));
-                }
-              };
-              input.click();
-            }}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Choose File
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
   // PRD 4.1: Render dashboard content based on table state
   const renderDashboardContent = () => {
-    // Empty State: Large, prominent drop zone
     if (tables.length === 0) {
       return (
-        <div className="min-h-screen bg-background p-4 sm:p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="mb-6 sm:mb-8">
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Tables</h1>
-              <p className="text-muted-foreground mt-1 sm:mt-2">
-                Manage your prospect data tables and CSV uploads
-              </p>
-            </div>
-            <EmptyState onFileUpload={handleFileUpload} />
-          </div>
+        <div className="min-h-[60vh]">
+          {renderEmptyState
+            ? renderEmptyState()
+            : (
+              <EmptyState
+                onImportCSV={triggerImportCSV}
+                onSearchApollo={triggerSearchApollo}
+                onConnectWebhook={triggerConnectWebhook}
+              />
+            )}
         </div>
       );
     }
 
-    // Populated State: Dashboard with compact drop zone
     return (
-      <div className="space-y-6">
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Tables</h1>
-            <p className="text-muted-foreground">
-              Manage your data tables and CSV uploads
-            </p>
-          </div>
-          <Button 
-            className="w-full sm:w-auto"
-            onClick={() => {
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = '.csv';
-              input.onchange = (e) => {
-                const files = (e.target as HTMLInputElement).files;
-                if (files && files.length > 0) {
-                  handleFileUpload(Array.from(files));
-                }
-              };
-              input.click();
-            }}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Upload CSV
-          </Button>
-        </div>
-
-        {/* Compact Drop Zone - Only show when not in bulk selection mode */}
-        {!bulkSelection.isSelecting && (
-          <CompactDropZone />
-        )}
-
-        {/* Results count and filter controls */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-4">
-            <h2 className="text-lg font-semibold">
-              {filteredTables.length} {filteredTables.length === 1 ? 'table' : 'tables'}
-              {hasActiveFilters && ` found`}
-            </h2>
-            {hasActiveFilters && (
-              <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground hover:text-foreground">
-                Clear filters
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Enhanced Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search tables by name, description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-10 w-full"
-            />
-            {searchQuery && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-gray-100"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-          <Select value={sourceFilter} onValueChange={setSourceFilter}>
-            <SelectTrigger className="w-full md:w-[180px]">
-              <SelectValue placeholder="Filter by Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sources ({tables.length})</SelectItem>
-              {getFilterSuggestions().sources.map(source => (
-                <SelectItem key={source.value} value={source.value}>
-                  {source.label} ({source.count})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full md:w-[180px]">
-              <SelectValue placeholder="Filter by Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses ({tables.length})</SelectItem>
-              {getFilterSuggestions().statuses.map(status => (
-                <SelectItem key={status.value} value={status.value}>
-                  {status.label} ({status.count})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            onClick={bulkSelection.toggleBulkMode}
-            className={`w-full sm:w-auto ${bulkSelection.isSelecting ? "bg-blue-50 text-blue-700 border-blue-300" : ""}`}
-          >
-            <CheckSquare className="mr-2 h-4 w-4" />
-            {bulkSelection.isSelecting ? 'Cancel Selection' : 'Select Tables'}
-          </Button>
-        </div>
-
-        {/* Select All Section - Only show when in bulk selection mode */}
-        {bulkSelection.isSelecting && filteredTables.length > 0 && (
-          <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <Checkbox
-              checked={bulkSelection.isAllSelected}
-              data-indeterminate={bulkSelection.isIndeterminate}
-              onCheckedChange={bulkSelection.selectAll}
-            />
-            <span className="text-sm font-medium text-blue-900">
-              Select all ({filteredTables.length} tables)
-            </span>
-            {bulkSelection.selectedCount > 0 && (
-              <span className="text-sm text-blue-700 ml-auto">
-                {bulkSelection.selectedCount} selected
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Tables List */}
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="hidden md:table-cell text-right">Rows</TableHead>
-                  <TableHead className="hidden lg:table-cell text-right">Columns</TableHead>
-                  <TableHead className="hidden lg:table-cell">Source</TableHead>
-                  <TableHead className="hidden md:table-cell">Last Modified</TableHead>
-                  <TableHead className="w-[50px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTables.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <div className="flex flex-col items-center space-y-3">
-                        <div className="text-muted-foreground">
-                          {hasActiveFilters 
-                            ? 'No tables match your filters'
-                            : 'No tables found'
-                          }
-                        </div>
-                        {hasActiveFilters ? (
-                          <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2">
-                            <Button variant="outline" size="sm" onClick={clearAllFilters}>
-                              Clear all filters
-                            </Button>
-                            <span className="text-sm text-muted-foreground">or</span>
-                            <Button variant="outline" size="sm">
-                              <Plus className="mr-2 h-4 w-4" />
-                              Create new table
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button variant="outline" size="sm">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Create your first table
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredTables.map((table) => (
-                    <TableRowComponent 
-                      key={table.id} 
-                      table={table} 
-                      onAction={handleTableAction}
-                      isSelected={bulkSelection.isSelected(table.id)}
-                      onSelect={bulkSelection.isSelecting ? bulkSelection.toggleItem : undefined}
-                      showBulkActions={bulkSelection.isSelecting}
-                    />
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* Enhanced Summary Stats */}
-        {tables.length > 0 && (
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <div>
-              {hasActiveFilters ? (
-                <span>
-                  Showing {filteredTables.length} of {tables.length} tables
-                  {filteredTables.length !== tables.length && (
-                    <span className="ml-2">
-                      ({tables.length - filteredTables.length} hidden by filters)
-                    </span>
-                  )}
-                </span>
-              ) : (
-                <span>Showing all {tables.length} tables</span>
-              )}
-            </div>
-            {bulkSelection.selectedCount > 0 && (
-              <div className="text-blue-600">
-                {bulkSelection.selectedCount} table{bulkSelection.selectedCount !== 1 ? 's' : ''} selected
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Upload Progress Overlay */}
-        {uploadProgress && (
-          <UploadProgressOverlay
-            progress={uploadProgress}
-            onClose={() => setUploadProgress(null)}
-            onViewTable={(tableId) => {
-              setUploadProgress(null);
-              router.push(`/dashboard/tables/${tableId}`);
-            }}
-          />
-        )}
-
-        {/* Bulk Action Toolbar */}
-        <BulkActionToolbar
-          selectedCount={bulkSelection.selectedCount}
-          onClearSelection={bulkSelection.clearSelection}
-          onBulkDelete={handleBulkDelete}
-          onBulkExport={handleBulkExport}
-          visible={bulkSelection.showBulkActions}
-        />
-      </div>
+      <AdvancedTablesView
+        tables={filteredTables.map((table) => ({
+          id: table.id,
+          name: table.name,
+          rows: table.rows,
+          columns: table.columns,
+          source: table.source,
+          lastModified: table.lastModified,
+          status: table.status,
+          description: table.description,
+          owner: user?.email ?? 'Unknown',
+        }))}
+        onImportCSV={triggerImportCSV}
+        onSearchApollo={triggerSearchApollo}
+        onViewTable={(id) => handleTableAction('view', id)}
+        onEditTable={(id) => handleTableAction('edit', id)}
+        onDuplicateTable={(id) => handleTableAction('duplicate', id)}
+        onDeleteTable={(id) => handleTableAction('delete', id)}
+      />
     );
   };
 
   // PRD 4.1: Wrap entire dashboard with FileUploadDropzone for global drag-and-drop
   return (
-    <FileUploadDropzone onFileUpload={handleFileUpload}>
-      {renderDashboardContent()}
-    </FileUploadDropzone>
+    <>
+      <CsvUploadModal
+        open={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onUploadFiles={handleFileUpload}
+      />
+      <FileUploadDropzone onFileUpload={handleFileUpload}>
+        {renderDashboardContent()}
+      </FileUploadDropzone>
+    </>
   );
 }

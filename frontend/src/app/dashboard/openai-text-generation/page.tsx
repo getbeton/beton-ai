@@ -33,8 +33,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import MainNavigation from '@/components/navigation/MainNavigation';
-import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation';
+import DashboardShell from '@/components/layout/DashboardShell';
 
 interface OpenAIRequest {
   prompt: string;
@@ -185,48 +184,21 @@ export default function OpenAITextGenerationPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-gray-50">
-        <div className="flex flex-col items-center space-y-4">
+      <DashboardShell title="OpenAI Text Generation" description="Generate text using OpenAI's powerful language models">
+        <div className="flex flex-col items-center justify-center space-y-4 py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           <p className="text-muted-foreground">Loading...</p>
         </div>
-      </div>
+      </DashboardShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50">
+    <DashboardShell
+      title="OpenAI Text Generation"
+      description="Generate text using OpenAI's powerful language models"
+    >
       <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-      
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <MainNavigation />
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
-        {/* Breadcrumb Navigation */}
-        <div className="mb-6">
-          <BreadcrumbNavigation customSegments={[
-            { label: 'Dashboard', href: '/dashboard' },
-            { label: 'OpenAI Text Generation', href: '/dashboard/openai-text-generation' }
-          ]} />
-        </div>
-
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-2 mb-2">
-            <Brain className="h-6 w-6 text-blue-600" />
-            <h1 className="text-2xl font-bold">OpenAI Text Generation</h1>
-          </div>
-          <p className="text-muted-foreground">
-            Generate text using OpenAI's powerful language models
-          </p>
-        </div>
 
         {openaiIntegrations.length === 0 ? (
           <Card>
@@ -432,7 +404,6 @@ export default function OpenAITextGenerationPage() {
             </Card>
           </div>
         )}
-      </main>
-    </div>
+    </DashboardShell>
   );
 } 

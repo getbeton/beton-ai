@@ -50,11 +50,6 @@ setup_env_files() {
     fi
     
     # Mock Apollo .env setup
-    if [ ! -f "mock-apollo/.env" ]; then
-        echo "🔧 Configuring mock-apollo/.env"
-        cp mock-apollo/env.example mock-apollo/.env
-    fi
-    
     echo "✅ Environment files configured!"
 }
 
@@ -72,7 +67,7 @@ echo "📦 Starting PostgreSQL, Redis and optional services..."
 if [[ $mock_apollo == "y" || $mock_apollo == "Y" ]]; then
     echo "📡 Mock Apollo Service will be included on port 3002"
     echo "📊 Mock PostgreSQL will be included on port 5433"
-    docker-compose up -d postgres redis mock-postgres mock-apollo
+    docker-compose up -d postgres redis
 else
     docker-compose up -d postgres redis
 fi

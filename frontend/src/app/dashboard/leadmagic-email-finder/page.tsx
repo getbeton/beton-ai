@@ -26,8 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import MainNavigation from '@/components/navigation/MainNavigation';
-import BreadcrumbNavigation from '@/components/navigation/BreadcrumbNavigation';
+import DashboardShell from '@/components/layout/DashboardShell';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface EmailFinderRequest {
@@ -157,38 +156,11 @@ export default function LeadMagicEmailFinderPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-gray-50">
+    <DashboardShell
+      title="LeadMagic Email Finder"
+      description="Find verified business email addresses with high accuracy"
+    >
       <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-      
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <MainNavigation />
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
-        {/* Breadcrumb Navigation */}
-        <div className="mb-6">
-          <BreadcrumbNavigation customSegments={[
-            { label: 'Dashboard', href: '/dashboard' },
-            { label: 'LeadMagic Email Finder', href: '/dashboard/leadmagic-email-finder' }
-          ]} />
-        </div>
-
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-2 mb-2">
-            <Mail className="h-6 w-6 text-blue-600" />
-            <h1 className="text-2xl font-bold">LeadMagic Email Finder</h1>
-          </div>
-          <p className="text-muted-foreground">
-            Find verified business email addresses with high accuracy
-          </p>
-        </div>
 
         {leadmagicIntegrations.length === 0 ? (
           <Card>
@@ -394,7 +366,6 @@ export default function LeadMagicEmailFinderPage() {
             </Card>
           </div>
         )}
-      </main>
-    </div>
+    </DashboardShell>
   );
 } 

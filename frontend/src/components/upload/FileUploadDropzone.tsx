@@ -17,22 +17,13 @@ export const FileUploadDropzone: React.FC<FileUploadDropzoneProps> = ({
   const [isDragActive, setIsDragActive] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
-    // Handle rejected files
     if (rejectedFiles.length > 0) {
-      alert('Please upload a CSV file only');
+      console.warn('[FileUploadDropzone] rejected files dropped');
       return;
     }
 
-    // Validate accepted files
     if (acceptedFiles.length === 0) return;
 
-    const file = acceptedFiles[0];
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      alert('Please upload a CSV file');
-      return;
-    }
-
-    // Pass to parent handler
     onFileUpload(acceptedFiles);
     setIsDragActive(false);
   }, [onFileUpload]);
@@ -72,7 +63,7 @@ export const FileUploadDropzone: React.FC<FileUploadDropzoneProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-blue-50/90 border-2 border-dashed border-blue-300 rounded-lg flex items-center justify-center z-50"
+            className="absolute inset-0 rounded-[28px] border-2 border-dashed border-primary/40 bg-primary/10 flex items-center justify-center z-50"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -82,13 +73,13 @@ export const FileUploadDropzone: React.FC<FileUploadDropzoneProps> = ({
               className="text-center"
             >
               <div className="mx-auto h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
-                <FileSpreadsheet className="h-8 w-8 text-blue-600" />
+                <FileSpreadsheet className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="text-xl font-semibold text-blue-700 mb-2">
-                Drop CSV file here
+              <h3 className="text-xl font-semibold text-foreground/90 mb-2">
+                Drop CSV file to import
               </h3>
-              <p className="text-blue-600">
-                Create a new table from your CSV data
+              <p className="text-sm text-muted-foreground">
+                Release to start creating a new table from your CSV data
               </p>
             </motion.div>
           </motion.div>

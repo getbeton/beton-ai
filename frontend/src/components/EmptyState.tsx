@@ -1,133 +1,140 @@
 'use client';
 
-import { useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { Upload, FileSpreadsheet } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  FileSpreadsheet,
+  Search,
+  Webhook,
+  Sparkles,
+  ArrowUpRight,
+} from 'lucide-react';
 
 interface EmptyStateProps {
-  onFileUpload: (files: File[]) => void;
+  onImportCSV: () => void;
+  onSearchApollo: () => void;
+  onConnectWebhook: () => void;
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({ onFileUpload }) => {
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      onFileUpload(acceptedFiles);
-    }
-  }, [onFileUpload]);
-
-  const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
-    onDrop,
-    accept: {
-      'text/csv': ['.csv']
-    },
-    multiple: false,
-    maxSize: 50 * 1024 * 1024 // 50MB
-  });
+const EmptyStateCard = ({
+  icon: Icon,
+  title,
+  description,
+  action,
+  variant,
+}: {
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  title: string;
+  description: string;
+  action: {
+    label: string;
+    onClick: () => void;
+    variant?: 'default' | 'outline';
+  };
+  variant: 'primary' | 'secondary' | 'tertiary';
+}) => {
+  const gradients = {
+    primary: 'bg-gradient-to-br from-[#DEE9FF] to-[#F3F6FF] dark:from-[#10142E] dark:to-[#151B38]',
+    secondary: 'bg-gradient-to-br from-[#F1EAFF] to-[#F6F1FF] dark:from-[#1B1733] dark:to-[#211B3F]',
+    tertiary: 'bg-gradient-to-br from-[#E7F7F4] to-[#F1FBF9] dark:from-[#0F1F1C] dark:to-[#142924]',
+  };
 
   return (
-    <div className="flex items-center justify-center min-h-[60vh] p-4 sm:p-6">
-      <div className="w-full max-w-2xl">
-        <div
-          {...getRootProps()}
-          className={`
-            border-2 border-dashed rounded-lg p-8 sm:p-12 text-center cursor-pointer
-            transition-all duration-200 ease-in-out
-            ${isDragActive && !isDragReject
-              ? 'border-blue-500 bg-blue-50'
-              : isDragReject
-              ? 'border-red-500 bg-red-50'
-              : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-            }
-          `}
-        >
-          <input {...getInputProps()} aria-label="Upload CSV file" />
-          
-          {/* Upload Icon */}
-          <div className="flex justify-center mb-6">
-            <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-gray-100 flex items-center justify-center">
-              {isDragActive ? (
-                <FileSpreadsheet className="h-10 w-10 sm:h-12 sm:w-12 text-blue-600" />
-              ) : (
-                <Upload className="h-10 w-10 sm:h-12 sm:w-12 text-gray-600" />
-              )}
-            </div>
-          </div>
-
-          {/* Main Heading */}
-          <h3 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-4">
-            {isDragActive
-              ? 'Drop your CSV here to create your first table'
-              : 'Drop your CSV here to create your first table'
-            }
-          </h3>
-
-          {/* Description */}
-          <p className="text-gray-600 mb-6 max-w-sm mx-auto">
-            Transform your prospect data into organized tables with automatic column detection and data validation.
-          </p>
-
-          {/* Call-to-Action Button */}
-          <Button 
-            type="button"
-            size="lg"
-            className="mb-4"
-            onClick={(e) => {
-              e.stopPropagation();
-              // Trigger file dialog
-              const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-              input?.click();
-            }}
-          >
-            <Upload className="mr-2 h-5 w-5" />
-            Choose CSV File
-          </Button>
-
-          {/* File Guidance */}
-          <div className="text-sm text-gray-500 space-y-1">
-            <p>Supports CSV files up to 50MB</p>
-            <p className="text-xs">Automatic column detection • Data validation included</p>
-          </div>
-
-          {/* Drag States Feedback */}
-          {isDragReject && (
-            <div className="mt-4 text-red-600 text-sm">
-              Please upload a valid CSV file only
-            </div>
-          )}
+    <Card className={`${gradients[variant]} relative overflow-hidden border-none shadow-sm transition-transform hover:-translate-y-1`}>
+      <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
+      <CardHeader className="space-y-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-background/80 shadow-sm">
+          <Icon className="h-5 w-5 text-primary" />
         </div>
-
-        {/* Additional Features Preview */}
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-          <div className="p-4">
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
-              <FileSpreadsheet className="h-4 w-4 text-blue-600" />
-            </div>
-            <h4 className="font-medium text-gray-900 mb-1">Smart Detection</h4>
-            <p className="text-xs text-gray-600">Automatic column type detection and validation</p>
-          </div>
-          
-          <div className="p-4">
-            <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
-              <Upload className="h-4 w-4 text-green-600" />
-            </div>
-            <h4 className="font-medium text-gray-900 mb-1">Fast Upload</h4>
-            <p className="text-xs text-gray-600">Progress tracking with real-time updates</p>
-          </div>
-          
-          <div className="p-4">
-            <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-2">
-              <svg className="h-4 w-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h4 className="font-medium text-gray-900 mb-1">Ready to Use</h4>
-            <p className="text-xs text-gray-600">Instantly searchable and manageable data</p>
-          </div>
-        </div>
-      </div>
-    </div>
+        <CardTitle className="text-xl font-semibold text-foreground/90">
+          {title}
+        </CardTitle>
+        <CardDescription className="text-sm leading-6 text-muted-foreground/80">
+          {description}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button className="w-full" variant={action.variant} onClick={action.onClick}>
+          {action.label}
+        </Button>
+      </CardContent>
+    </Card>
   );
 };
+
+export function EmptyState({
+  onImportCSV,
+  onSearchApollo,
+  onConnectWebhook,
+}: EmptyStateProps) {
+  return (
+    <section className="flex min-h-[60vh] items-center justify-center px-6 py-12">
+      <div className="flex w-full max-w-5xl flex-col gap-8">
+        <div className="space-y-3">
+          <Badge variant="secondary" className="gap-1 bg-secondary/60 text-secondary-foreground/90">
+            <Sparkles className="h-3 w-3" />
+            Start simple
+          </Badge>
+          <h1 className="text-3xl font-semibold text-foreground/90 md:text-4xl">
+            Create your first table
+          </h1>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            Choose how you’d like to get started. You can import existing data, search for contacts, or connect your own data source.
+          </p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          <EmptyStateCard
+            variant="primary"
+            icon={FileSpreadsheet}
+            title="Import CSV"
+            description="Upload a CSV file to quickly populate your first table with existing data."
+            action={{
+              label: 'Choose File',
+              onClick: onImportCSV,
+            }}
+          />
+          <EmptyStateCard
+            variant="secondary"
+            icon={Search}
+            title="Search Apollo.io"
+            description="Find and import contacts from Apollo.io’s extensive B2B database."
+            action={{
+              label: 'Search contacts',
+              onClick: onSearchApollo,
+              variant: 'outline',
+            }}
+          />
+          <EmptyStateCard
+            variant="tertiary"
+            icon={Webhook}
+            title="Connect Webhook"
+            description="Send data to a Beton-provided webhook and automatically create tables."
+            action={{
+              label: 'Get webhook URL',
+              onClick: onConnectWebhook,
+              variant: 'outline',
+            }}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <span>Need help getting started?</span>
+          <Button variant="link" className="h-auto p-0 text-primary" onClick={() => window.open('#', '_blank')}>
+            View documentation
+            <ArrowUpRight className="ml-1 h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default EmptyState;
