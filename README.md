@@ -31,12 +31,43 @@ Beton-AI uses **COSS UI** components - a modern, accessible component library bu
 - 🎨 **Modern UI** - Header-based navigation with clean, professional interface
 - 📊 **Advanced Table Management** - Import, view, filter, sort, and manage data tables with ease
 - 📁 **CSV Upload** - Drag-and-drop file uploads with real-time progress tracking
+- 🔗 **Webhooks** - Bidirectional webhook support for automation and integrations
 - 📈 **Analytics Dashboard** - PostHog integration for user behavior insights
 - 🤝 **Apollo, OpenAI, Findymail Integrations** - Connect with real APIs via secure key storage
 - 🐳 **Docker Ready** - Full containerization support with automated database setup
 - 🔄 **Real-time Updates** - WebSocket support and dynamic page refreshing
 - 🔔 **Toast Notifications** - Elegant user feedback with Sonner
 - ⚡ **Background Job Processing** - Bull Queue with Redis for async tasks
+
+## 🔗 Webhooks
+
+Beton-AI provides comprehensive webhook functionality for seamless automation and external integrations.
+
+### Incoming Webhooks
+Receive data from external services and automatically populate your tables:
+- **Unique URLs** - Generate dedicated webhook endpoints for each table
+- **Visual Field Mapping** - Map external JSON fields to table columns with dropdowns
+- **Live Testing** - Test webhooks with sample data before going live
+- **Real-time Stats** - Monitor webhook activity and received data
+- **Toggle Control** - Pause/resume webhooks without deleting configuration
+
+### Outbound Webhooks
+Send data to external services when events occur in your tables:
+- **Event Selection** - Choose which events trigger webhooks (row.created, row.updated, row.deleted)
+- **URL Configuration** - Point to any HTTP(S) endpoint (Zapier, Make, custom APIs)
+- **Delivery History** - View detailed logs of all webhook deliveries
+- **Test Functionality** - Send test payloads to verify your endpoint
+- **Auto-retry** - Automatic retry logic for failed deliveries
+- **Pause/Resume** - Control webhook execution without losing configuration
+
+**Use Cases:**
+- Send new leads to your CRM automatically
+- Trigger email campaigns when rows are added
+- Sync data with third-party tools
+- Build custom automation workflows
+- Integrate with Zapier, Make, and other automation platforms
+
+See the [Webhook Documentation](./prd/webhooks/) for detailed implementation guides.
 
 ## 🤝 Apollo Integration
 

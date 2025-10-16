@@ -18,6 +18,12 @@ const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use(async (config) => {
+  // In development mode, skip Supabase auth check
+  if (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_DEV_MODE === 'true') {
+    // Backend will inject mock user in development
+    return config;
+  }
+  
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
@@ -31,8 +37,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized access
-      window.location.href = '/auth';
+      // In development mode, don't redirect to auth
+      if (process.env.NODE_ENV !== 'development' && process.env.NEXT_PUBLIC_DEV_MODE !== 'true') {
+        window.location.href = '/auth';
+      }
     }
     return Promise.reject(error);
   }
@@ -478,6 +486,44 @@ export const apiClient = {
       const query = searchParams.toString();
       return api.get(`/api/ai-tasks/jobs/${jobId}/executions${query ? `?${query}` : ''}`);
     },
+  },
+
+  // Webhook endpoints
+  webhooks: {
+    // Incoming webhooks
+    createIncoming: (data: any): Promise<{ data: { success: boolean; data: any } }> =>
+      api.post('/api/webhooks', data),
+    
+    listIncoming: (): Promise<{ data: { success: boolean; data: any[] } }> =>
+      api.get('/api/webhooks'),
+    
+    getIncoming: (tableId: string): Promise<{ data: { success: boolean; data: any } }> =>
+      api.get(`/api/webhooks/table/${tableId}`),
+    
+    deleteIncoming: (webhookId: string): Promise<{ data: { success: boolean } }> =>
+      api.delete(`/api/webhooks/${webhookId}`),
+    
+    updateIncoming: (webhookId: string, data: any): Promise<{ data: { success: boolean; data: any } }> =>
+      api.put(`/api/webhooks/${webhookId}`, data),
+    
+    // Outbound webhooks
+    createOutbound: (data: any): Promise<{ data: { success: boolean; data: any } }> =>
+      api.post('/api/webhooks/outbound', data),
+    
+    listOutbound: (tableId?: string): Promise<{ data: { success: boolean; data: any[] } }> =>
+      api.get(`/api/webhooks/outbound${tableId ? `?tableId=${tableId}` : ''}`),
+    
+    updateOutbound: (webhookId: string, data: any): Promise<{ data: { success: boolean; data: any } }> =>
+      api.put(`/api/webhooks/outbound/${webhookId}`, data),
+    
+    deleteOutbound: (webhookId: string): Promise<{ data: { success: boolean } }> =>
+      api.delete(`/api/webhooks/outbound/${webhookId}`),
+    
+    testOutbound: (webhookId: string): Promise<{ data: { success: boolean; data: any } }> =>
+      api.post(`/api/webhooks/outbound/${webhookId}/test`),
+    
+    getDeliveries: (webhookId: string): Promise<{ data: { success: boolean; data: any[] } }> =>
+      api.get(`/api/webhooks/outbound/${webhookId}/deliveries`),
   },
 };
 

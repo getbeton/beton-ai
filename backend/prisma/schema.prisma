@@ -68,21 +68,23 @@ model UserPreferences {
 }
 
 model UserTable {
-  id              String            @id @default(cuid())
-  userId          String
-  name            String
-  description     String?
-  sourceType      String            @default("manual")
-  sourceId        String?
-  isArchived      Boolean           @default(false)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  isProcessing    Boolean           @default(false)
-  processingJobId String?
-  bulkJobs        BulkDownloadJob[]
-  columns         TableColumn[]
-  rows            TableRow[]
-  aiTaskJobs      AiTaskJob[]
+  id               String             @id @default(cuid())
+  userId           String
+  name             String
+  description      String?
+  sourceType       String             @default("manual")
+  sourceId         String?
+  isArchived       Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  isProcessing     Boolean            @default(false)
+  processingJobId  String?
+  bulkJobs         BulkDownloadJob[]
+  columns          TableColumn[]
+  rows             TableRow[]
+  aiTaskJobs       AiTaskJob[]
+  incomingWebhooks IncomingWebhook[]
+  outboundWebhooks OutboundWebhook[]
 
   @@unique([userId, name])
   @@map("user_tables")
@@ -219,4 +221,64 @@ model AiTaskExecution {
   cell        TableCell   @relation(fields: [cellId], references: [id], onDelete: Cascade)
 
   @@map("ai_task_executions")
+}
+
+model IncomingWebhook {
+  id             String    @id @default(cuid())
+  userId         String
+  tableId        String    @unique
+  url            String    @unique
+  isActive       Boolean   @default(true)
+  fieldMapping   Json      @default("{}")
+  receivedCount  Int       @default(0)
+  lastReceivedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  table          UserTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("incoming_webhooks")
+}
+
+model OutboundWebhook {
+  id             String             @id @default(cuid())
+  userId         String
+  tableId        String
+  url            String
+  events         String[]           @default([])
+  isActive       Boolean            @default(true)
+  secretKey      String?
+  retryCount     Int                @default(3)
+  timeout        Int                @default(30000)
+  deliveryCount  Int                @default(0)
+  successCount   Int                @default(0)
+  failureCount   Int                @default(0)
+  lastDeliveryAt DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  table          UserTable          @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  deliveries     WebhookDelivery[]
+
+  @@index([userId])
+  @@index([tableId])
+  @@map("outbound_webhooks")
+}
+
+model WebhookDelivery {
+  id           String          @id @default(cuid())
+  webhookId    String
+  event        String
+  payload      Json
+  statusCode   Int?
+  responseBody String?
+  responseTime Int?
+  success      Boolean         @default(false)
+  attempt      Int             @default(1)
+  error        String?
+  createdAt    DateTime        @default(now())
+  webhook      OutboundWebhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+  @@index([createdAt(sort: Desc)])
+  @@map("webhook_deliveries")
 }

@@ -21,6 +21,21 @@ export const authMiddleware = async (
   next: NextFunction
 ) => {
   try {
+    // Development mode bypass - skip authentication for local testing
+    if (process.env.NODE_ENV === 'development' || process.env.DEV_BYPASS_AUTH === 'true') {
+      console.log('[Auth] Development mode - bypassing authentication');
+      
+      // Inject a mock user for development
+      req.user = {
+        id: 'e72da235-26ec-449c-839f-b3ef797a1314', // Matches existing test data
+        email: 'dev@beton-ai.local',
+        name: 'Development User',
+        avatar_url: undefined
+      };
+      
+      return next();
+    }
+
     // Check if Supabase is configured
     if (!supabase) {
       return res.status(503).json({ 

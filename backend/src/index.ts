@@ -13,6 +13,7 @@ import bulkDownloadRouter from './routes/bulkDownload';
 import apolloConfigRouter from './routes/apolloConfig';
 import leadmagicRouter from './routes/leadmagic';
 import aiTasksRouter from './routes/aiTasks';
+import webhooksRouter from './routes/webhooks';
 import { errorHandler } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth';
 import { WebSocketService } from './services/websocketService';
@@ -75,6 +76,7 @@ app.use('/api/bulk-download', authMiddleware, bulkDownloadRouter);
 app.use('/api/apollo', authMiddleware, apolloConfigRouter);
 app.use('/api/leadmagic', authMiddleware, leadmagicRouter);
 app.use('/api/ai-tasks', authMiddleware, aiTasksRouter);
+app.use('/api/webhooks', webhooksRouter); // Some routes need auth, some don't (receive endpoint)
 
 // Test endpoint for JWT authentication status
 app.get('/api/auth/test', authMiddleware, (req: any, res) => {

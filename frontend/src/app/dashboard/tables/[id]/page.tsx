@@ -9,6 +9,8 @@ import { apiClient, type UserTable, type TableColumn, type CreateColumnRequest, 
 import { TableCellRenderer } from '@/components/tables/TableCellRenderer';
 import { useAiTaskCells } from '@/hooks/useAiTaskCells';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { IncomingWebhookButton } from '@/components/webhooks/IncomingWebhookButton';
+import { OutboundWebhookButton } from '@/components/webhooks/OutboundWebhookButton';
 import { 
   Plus,
   Table as TableIcon,
@@ -1085,10 +1087,21 @@ export default function TableViewPage() {
       description={table.description || 'No description'}
       tableName={table.name}
       actions={
-        <Button variant="outline" onClick={handleExportCSV}>
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
-        </Button>
+        <div className="flex gap-2">
+          {/* Incoming Webhook */}
+          <IncomingWebhookButton
+            tableId={tableId}
+            tableName={table.name}
+            columns={table.columns || []}
+          />
+          
+          {/* Outbound Webhook (includes Export CSV) */}
+          <OutboundWebhookButton
+            tableId={tableId}
+            tableName={table.name}
+            onExportCSV={handleExportCSV}
+          />
+        </div>
       }
     >
       <Head>
