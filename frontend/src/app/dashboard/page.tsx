@@ -358,6 +358,15 @@ export default function DashboardPage() {
     adapterMethodsRef.current = methods;
   }, []);
 
+  /**
+   * Callback: Handle table count changes from adapter
+   * This ensures empty state appears when last table is deleted
+   */
+  const handleTableCountChange = useCallback((count: number) => {
+    console.info('[DashboardPage] Table count changed:', count);
+    setHasNoTables(count === 0);
+  }, []);
+
   // Render loading state during authentication check
   if (loading) {
     return (
@@ -572,6 +581,7 @@ export default function DashboardPage() {
             onSearchApollo={handleSearchApollo}
             initialLoading={false}
             onAdapterReady={handleAdapterReady}
+            onTableCountChange={handleTableCountChange}
           />
         )}
       </FileUploadDropzone>

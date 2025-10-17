@@ -46,6 +46,8 @@ interface TablesPageAdapterProps {
   initialLoading?: boolean;
   /** Callback to expose adapter methods to parent */
   onAdapterReady?: (methods: TablesPageAdapterMethods) => void;
+  /** Callback when table count changes (for empty state detection) */
+  onTableCountChange?: (count: number) => void;
 }
 
 /**
@@ -72,6 +74,7 @@ export default function TablesPageAdapter({
   onSearchApollo,
   initialLoading = true,
   onAdapterReady,
+  onTableCountChange,
 }: TablesPageAdapterProps) {
   const router = useRouter();
   
@@ -375,6 +378,18 @@ export default function TablesPageAdapter({
       onAdapterReady(methods);
     }
   }, [onAdapterReady, refetch, addNewTable, updateExistingTable]);
+
+  /**
+   * Effect: Notify parent when table count changes
+   * 
+   * This allows parent to switch between empty state and tables view
+   * when the last table is deleted or first table is added
+   */
+  useEffect(() => {
+    if (onTableCountChange) {
+      onTableCountChange(tables.length);
+    }
+  }, [tables.length, onTableCountChange]);
 
   // Render loading state with skeleton
   if (loading && tables.length === 0) {

@@ -94,13 +94,13 @@ export const OutboundWebhookButton: React.FC<OutboundWebhookButtonProps> = ({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export & Webhooks
-            <ChevronDown className="h-4 w-4 ml-2" />
+          <Button variant="outline" className="gap-1">
+            <Download className="h-4 w-4" />
+            Export Data
+            <ChevronDown className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-56" sideOffset={5}>
           {/* CSV Export */}
           <DropdownMenuItem onClick={onExportCSV}>
             <Download className="mr-2 h-4 w-4" />
