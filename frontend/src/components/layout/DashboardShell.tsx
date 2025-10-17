@@ -12,6 +12,10 @@ interface DashboardShellProps {
   breadcrumbSegments?: any; // Kept for backward compatibility but not used
   tableName?: string; // For table detail pages
   showBreadcrumb?: boolean; // Whether to show breadcrumbs (default: true)
+  tableStats?: {
+    columns: number;
+    totalRows: number;
+  }; // Table statistics to display in breadcrumb
 }
 
 /**
@@ -33,6 +37,7 @@ export function DashboardShell({
   children,
   tableName,
   showBreadcrumb = true,
+  tableStats,
 }: DashboardShellProps) {
   logComponentRender("DashboardShell", {
     hasTitle: Boolean(title),
@@ -42,15 +47,15 @@ export function DashboardShell({
   return (
     <div className="w-full p-4 lg:p-6 xl:p-8 bg-muted/30 min-h-screen">
       <div className="mx-auto w-full max-w-[1400px]">
-        {/* Breadcrumb Navigation */}
+        {/* Breadcrumb Navigation with optional table stats */}
         {showBreadcrumb && (
           <div className="mb-4">
-            <UniversalBreadcrumb tableName={tableName} />
+            <UniversalBreadcrumb tableName={tableName} stats={tableStats} />
           </div>
         )}
 
-        {/* Page header with title, description, and actions */}
-        {(title || description || actions) && (
+        {/* Page header with title, description, and actions - only show when NOT on table detail page */}
+        {(!tableName && (title || description || actions)) && (
           <div className="mb-6 rounded-lg border bg-card shadow-sm p-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
               {title && <h1 className="text-xl font-semibold tracking-tight lg:text-2xl">{title}</h1>}

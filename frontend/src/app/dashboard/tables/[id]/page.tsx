@@ -36,8 +36,8 @@ import toast, { Toaster } from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { TableStats } from '@/components/tables/TableStats';
 import DashboardShell from '@/components/layout/DashboardShell';
+import { TableToolbar } from '@/components/tables/TableToolbar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
@@ -893,7 +893,7 @@ export default function TableViewPage() {
     setCurrentPage(1); // Reset to first page when clearing filters
   };
 
-  const hasActiveFilters = debouncedSearchQuery || filters.length > 0;
+  const hasActiveFilters = !!(debouncedSearchQuery || filters.length > 0);
 
   const handleExportCSV = () => {
     // Use the current server-filtered data directly
@@ -1083,26 +1083,11 @@ export default function TableViewPage() {
 
   return (
     <DashboardShell
-      title={table.name}
-      description={table.description || 'No description'}
       tableName={table.name}
-      actions={
-        <div className="flex gap-2">
-          {/* Incoming Webhook */}
-          <IncomingWebhookButton
-            tableId={tableId}
-            tableName={table.name}
-            columns={table.columns || []}
-          />
-          
-          {/* Outbound Webhook (includes Export CSV) */}
-          <OutboundWebhookButton
-            tableId={tableId}
-            tableName={table.name}
-            onExportCSV={handleExportCSV}
-          />
-        </div>
-      }
+      tableStats={{
+        columns: table.columns?.length || 0,
+        totalRows: table.totalRows || 0
+      }}
     >
       <Head>
         <title>{table.name} - Table Details - Beton-AI</title>
@@ -1112,65 +1097,24 @@ export default function TableViewPage() {
       <Toaster position="top-right" />
 
       <div className="space-y-6">
-        {/* Header with Stats */}
-        <div className="flex items-center justify-end">
-          <TableStats 
-            columns={table.columns?.length || 0}
-            totalRows={table.totalRows || 0}
-            selectedRows={selectedRows.size}
-          />
-        </div>
+      {/* Toolbar - Single row with all controls */}
+      <TableToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        hasFilters={hasActiveFilters}
+        activeFilterCount={filters.length + (searchQuery ? 1 : 0)}
+        onToggleFilters={() => setShowFilters(!showFilters)}
+        selectedCount={selectedRows.size}
+        onDeleteSelected={selectedRows.size > 0 ? handleDeleteRows : undefined}
+        onAddRow={handleAddRow}
+        onAddColumn={() => setIsAddColumnDialogOpen(true)}
+        tableId={tableId}
+        tableName={table.name}
+        columns={table.columns || []}
+        onExportCSV={handleExportCSV}
+      />
 
-      {/* Toolbar */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search table..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-64"
-              />
-            </div>
-            
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              className={hasActiveFilters ? 'border-blue-500 text-blue-600' : ''}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters {hasActiveFilters && `(${filters.length + (searchQuery ? 1 : 0)})`}
-            </Button>
-            
-            {hasActiveFilters && (
-              <Button variant="ghost" onClick={clearAllFilters}>
-                <FilterX className="h-4 w-4 mr-2" />
-                Clear Filters
-              </Button>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {selectedRows.size > 0 && (
-              <Button variant="destructive" onClick={handleDeleteRows}>
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete {selectedRows.size} row(s)
-              </Button>
-            )}
-            
-            <Button onClick={handleAddRow}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Row
-            </Button>
-            
-            <Button variant="outline" onClick={() => setIsAddColumnDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Column
-            </Button>
-          </div>
-        </div>
 
         {/* Advanced Filters */}
         {showFilters && (

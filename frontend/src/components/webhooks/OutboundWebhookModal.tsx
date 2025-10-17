@@ -62,7 +62,7 @@ import {
   validateWebhookUrl,
 } from './types';
 import { apiClient } from '@/lib/api';
-import { toast } from 'sonner';
+import toast from 'react-hot-toast';
 
 interface OutboundWebhookModalProps {
   open: boolean;
@@ -142,7 +142,7 @@ export const OutboundWebhookModal: React.FC<OutboundWebhookModalProps> = ({
       
       // Warn on HTTP (not HTTPS)
       if (validation.valid && value.startsWith('http://') && !value.includes('localhost')) {
-        toast.warning('HTTP is not secure. Consider using HTTPS.');
+        toast('HTTP is not secure. Consider using HTTPS.', { icon: '⚠️' });
       }
     } else {
       setUrlError(null);
