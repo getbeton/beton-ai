@@ -63,6 +63,7 @@ interface TableToolbarProps {
   tableName: string;
   columns: TableColumn[];
   onExportCSV: () => void;
+  autoOpenIncomingWebhook?: boolean;
 }
 
 /**
@@ -86,6 +87,7 @@ export function TableToolbar({
   tableName,
   columns,
   onExportCSV,
+  autoOpenIncomingWebhook = false,
 }: TableToolbarProps) {
   return (
     <div className="flex items-center justify-between gap-4 p-4 border rounded-lg bg-card">
@@ -128,6 +130,7 @@ export function TableToolbar({
           tableId={tableId}
           tableName={tableName}
           columns={columns}
+          autoOpen={autoOpenIncomingWebhook}
         />
         
         {/* Export & Outbound Webhooks */}

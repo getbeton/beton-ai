@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { flushSync } from 'react-dom';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Head from 'next/head';
 import { supabase } from '@/lib/supabase';
 import { apiClient, type UserTable, type TableColumn, type CreateColumnRequest, type Integration } from '@/lib/api';
@@ -163,6 +163,7 @@ export default function TableViewPage() {
   const params = useParams();
   const tableId = params.id as string;
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   const [user, setUser] = useState<any>(null);
   const [table, setTable] = useState<UserTable | null>(null);
@@ -192,6 +193,7 @@ export default function TableViewPage() {
   const [executionIntegrationId, setExecutionIntegrationId] = useState<string>('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionJobId, setExecutionJobId] = useState<string | null>(null);
+  const [autoOpenIncomingWebhook, setAutoOpenIncomingWebhook] = useState(false);
   
   // AI Task cells hook for real-time updates
   const aiTaskCells = useAiTaskCells({
@@ -289,6 +291,17 @@ export default function TableViewPage() {
 
     checkUser();
   }, [router, tableId]);
+
+  // Check for auto-open INCOMING webhook parameter
+  useEffect(() => {
+    const shouldOpen = searchParams.get('openIncomingWebhook') === 'true';
+    if (shouldOpen && table) {
+      setAutoOpenIncomingWebhook(true);
+      // Clean URL by removing param
+      const newUrl = `/dashboard/tables/${tableId}`;
+      router.replace(newUrl);
+    }
+  }, [searchParams, table, tableId, router]);
 
   // Note: Integrations and variables are now preloaded on page load
   // instead of when dialogs open to prevent empty modal states
@@ -1112,6 +1125,7 @@ export default function TableViewPage() {
         tableName={table.name}
         columns={table.columns || []}
         onExportCSV={handleExportCSV}
+        autoOpenIncomingWebhook={autoOpenIncomingWebhook}
       />
 
       <div className="space-y-4">

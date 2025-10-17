@@ -60,6 +60,51 @@ export const generateTableNameFromFile = (filename: string): string => {
     .substring(0, 50);
 };
 
+/**
+ * Generate a unique table name by appending [n] suffix if name already exists
+ * 
+ * @param desiredName - The desired table name
+ * @param existingTables - Array of existing tables with name property
+ * @returns Unique table name with [n] suffix if needed
+ * 
+ * @example
+ * generateUniqueTableName('contacts', [{ name: 'contacts' }]) // returns 'contacts [1]'
+ * generateUniqueTableName('contacts', [{ name: 'contacts' }, { name: 'contacts [1]' }]) // returns 'contacts [2]'
+ */
+export const generateUniqueTableName = (
+  desiredName: string, 
+  existingTables: Array<{ name: string }>
+): string => {
+  // If name doesn't exist, use it as-is
+  const existingNames = existingTables.map(t => t.name.toLowerCase());
+  if (!existingNames.includes(desiredName.toLowerCase())) {
+    return desiredName;
+  }
+  
+  // Find highest suffix number for this base name
+  let maxSuffix = 0;
+  const baseName = desiredName;
+  const escapedBaseName = baseName.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  
+  existingNames.forEach(name => {
+    // Check for exact match (this is suffix 0, will become [1])
+    if (name === baseName.toLowerCase()) {
+      maxSuffix = Math.max(maxSuffix, 0);
+    }
+    
+    // Check for pattern: "base [n]"
+    const pattern = new RegExp(`^${escapedBaseName} \\[(\\d+)\\]$`);
+    const match = name.match(pattern);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      maxSuffix = Math.max(maxSuffix, num);
+    }
+  });
+  
+  // Return name with next suffix
+  return `${baseName} [${maxSuffix + 1}]`;
+};
+
 export const formatNumber = (num: number): string => {
   return new Intl.NumberFormat("en-US").format(num);
 };

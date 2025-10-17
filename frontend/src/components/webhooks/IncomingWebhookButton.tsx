@@ -30,12 +30,14 @@ interface IncomingWebhookButtonProps {
   tableId: string;
   tableName: string;
   columns: TableColumn[];
+  autoOpen?: boolean;
 }
 
 export const IncomingWebhookButton: React.FC<IncomingWebhookButtonProps> = ({
   tableId,
   tableName,
   columns,
+  autoOpen = false,
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [webhook, setWebhook] = useState<IncomingWebhook | null>(null);
@@ -60,6 +62,13 @@ export const IncomingWebhookButton: React.FC<IncomingWebhookButtonProps> = ({
 
     fetchWebhook();
   }, [tableId]);
+
+  // Auto-open modal if requested (for incoming webhook setup from empty state)
+  useEffect(() => {
+    if (autoOpen && !loading) {
+      setShowModal(true);
+    }
+  }, [autoOpen, loading]);
 
   const handleOpenModal = () => {
     setShowModal(true);
