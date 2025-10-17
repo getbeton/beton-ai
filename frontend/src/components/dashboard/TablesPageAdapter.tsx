@@ -384,12 +384,15 @@ export default function TablesPageAdapter({
    * 
    * This allows parent to switch between empty state and tables view
    * when the last table is deleted or first table is added
+   * 
+   * Only notify after initial load to avoid overwriting parent's initial fetch
    */
   useEffect(() => {
-    if (onTableCountChange) {
+    // Only notify if we have data (not on initial mount with empty array)
+    if (onTableCountChange && !loading) {
       onTableCountChange(tables.length);
     }
-  }, [tables.length, onTableCountChange]);
+  }, [tables.length, onTableCountChange, loading]);
 
   // Render loading state with skeleton
   if (loading && tables.length === 0) {

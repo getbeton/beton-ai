@@ -205,10 +205,10 @@ export default function DashboardPage() {
     setHasNoTables(count === 0);
   }, []);
 
-  // Render loading state during authentication check
+  // Render loading state during authentication check and initial data fetch
   if (loading) {
     return (
-      <DashboardShell title="Tables" description="Manage your data tables">
+      <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -217,10 +217,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <DashboardShell 
-      title="Tables" 
-      description="Manage your data tables"
-    >
+    <DashboardShell>
       <Toaster position="top-right" />
 
       {/* CSV Upload Modal */}

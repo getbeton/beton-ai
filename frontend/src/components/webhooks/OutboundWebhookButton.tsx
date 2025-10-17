@@ -92,7 +92,7 @@ export const OutboundWebhookButton: React.FC<OutboundWebhookButtonProps> = ({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" className="gap-1">
             <Download className="h-4 w-4" />
