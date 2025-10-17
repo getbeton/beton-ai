@@ -55,7 +55,6 @@ interface TableToolbarProps {
   onDeleteSelected?: () => void;
   
   // Table actions
-  onAddRow: () => void;
   onAddColumn: () => void;
   
   // Export & Webhooks
@@ -81,7 +80,6 @@ export function TableToolbar({
   onToggleFilters,
   selectedCount,
   onDeleteSelected,
-  onAddRow,
   onAddColumn,
   tableId,
   tableName,
@@ -139,12 +137,6 @@ export function TableToolbar({
           tableName={tableName}
           onExportCSV={onExportCSV}
         />
-        
-        {/* Add Row */}
-        <Button onClick={onAddRow}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Row
-        </Button>
         
         {/* Add Column */}
         <Button variant="outline" onClick={onAddColumn}>

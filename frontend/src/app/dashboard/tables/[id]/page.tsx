@@ -1119,7 +1119,6 @@ export default function TableViewPage() {
         onToggleFilters={() => setShowFilters(!showFilters)}
         selectedCount={selectedRows.size}
         onDeleteSelected={selectedRows.size > 0 ? handleDeleteRows : undefined}
-        onAddRow={handleAddRow}
         onAddColumn={() => setIsAddColumnDialogOpen(true)}
         tableId={tableId}
         tableName={table.name}
@@ -1431,38 +1430,45 @@ export default function TableViewPage() {
         </CardContent>
       </Card>
 
-      {/* Pagination */}
-      {table.pagination && table.pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, table.totalRows || 0)} of {table.totalRows} {hasActiveFilters ? 'filtered ' : ''}rows
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage(prev => prev - 1)}
-            >
-              Previous
-            </Button>
+      {/* Add Row Button and Pagination */}
+      <div className="flex items-center justify-between">
+        <Button onClick={handleAddRow} variant="default">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Row
+        </Button>
+        
+        {table.pagination && table.pagination.totalPages > 1 && (
+          <div className="flex items-center gap-6">
+            <div className="text-sm text-muted-foreground">
+              Showing {((currentPage - 1) * rowsPerPage) + 1} to {Math.min(currentPage * rowsPerPage, table.totalRows || 0)} of {table.totalRows} {hasActiveFilters ? 'filtered ' : ''}rows
+            </div>
             
-            <span className="text-sm">
-              Page {currentPage} of {table.pagination.totalPages}
-            </span>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={currentPage >= table.pagination.totalPages}
-              onClick={() => setCurrentPage(prev => prev + 1)}
-            >
-              Next
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(prev => prev - 1)}
+              >
+                Previous
+              </Button>
+              
+              <span className="text-sm">
+                Page {currentPage} of {table.pagination.totalPages}
+              </span>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= table.pagination.totalPages}
+                onClick={() => setCurrentPage(prev => prev + 1)}
+              >
+                Next
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Add Column Dialog */}
       <Dialog open={isAddColumnDialogOpen} onOpenChange={setIsAddColumnDialogOpen}>

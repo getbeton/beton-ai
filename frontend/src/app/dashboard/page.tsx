@@ -69,7 +69,9 @@ export default function DashboardPage() {
         // Check if user has any tables
         const response = await apiClient.tables.list();
         if (response.data.success) {
-          setHasNoTables(response.data.data.length === 0);
+          const tableCount = response.data.data.length;
+          console.info('[DashboardPage] Initial table count:', tableCount);
+          setHasNoTables(tableCount === 0);
         }
       } catch (error) {
         console.error('[DashboardPage] Error checking user session:', error);
@@ -166,7 +168,11 @@ export default function DashboardPage() {
       const response = await apiClient.tables.uploadCSV(file, uniqueTableName);
       
       if (response.data.success) {
-        toast.success('CSV uploaded successfully! Processing...', { id: 'csv-upload' });
+        const tableName = response.data.data.tableName || uniqueTableName;
+        toast.success(`Table "${tableName}" created successfully!`, { 
+          id: 'csv-upload',
+          duration: 5000
+        });
         
         // Close upload modal
         setShowUploadModal(false);
@@ -179,6 +185,7 @@ export default function DashboardPage() {
           // Wait a bit for backend processing, then refetch
           setTimeout(() => {
             adapterMethodsRef.current?.refetch();
+            toast.success('Table is ready!', { duration: 3000 });
           }, 2000);
         }
       }

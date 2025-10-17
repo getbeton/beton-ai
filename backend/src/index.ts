@@ -142,16 +142,16 @@ app.post('/api/test/integration', async (req, res) => {
   }
 });
 
-// Error handling middleware
-app.use(errorHandler);
-
-// 404 handler
-app.use('*', (req, res) => {
+// 404 handler - catch unmatched routes (must come after all route definitions)
+app.use((req, res, next) => {
   res.status(404).json({
     success: false,
     error: 'Route not found'
   });
 });
+
+// Error handling middleware - must come LAST
+app.use(errorHandler);
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
