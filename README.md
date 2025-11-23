@@ -2,6 +2,8 @@
 
 An open-source automation platform that helps teams streamline their workflows and manage API integrations efficiently.
 
+Our newsletter: [blog.getbeton.ai](https://blog.getbeton.ai/)
+
 ## 🚀 Tech Stack
 
 - **Frontend**: Next.js 14, TypeScript, TailwindCSS, COSS UI Components
@@ -265,6 +267,14 @@ The PostgreSQL container includes health checks that ensure the database is read
 3. Start the Express server
 
 This ensures consistent database state across all environments.
+
+## Blog pages for SEO indexing
+
+[https://blog.getbeton.ai/p/2025-11-06-beton-weekly-update]([url](https://blog.getbeton.ai/p/2025-11-06-beton-weekly-update))
+[https://blog.getbeton.ai/p/beton-weekly-update-2025-08-19]([url](https://blog.getbeton.ai/p/beton-weekly-update-2025-08-19))
+[https://blog.getbeton.ai/p/coming-soon]([url](https://blog.getbeton.ai/p/coming-soon))
+[https://blog.getbeton.ai/about]([url](https://blog.getbeton.ai/about))
+[https://blog.getbeton.ai/p/2025-09-26-beton-weekly-update]([url](https://blog.getbeton.ai/p/2025-09-26-beton-weekly-update))
 
 ## 🤝 Contributing
 
