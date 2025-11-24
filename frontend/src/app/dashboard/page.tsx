@@ -29,18 +29,18 @@ import { validateCSVFile, generateTableNameFromFile, generateUniqueTableName } f
  */
 export default function DashboardPage() {
   const router = useRouter();
-  
+
   // Authentication state
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // CSV upload modal state
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [mounted, setMounted] = useState(false);
-  
+
   // Empty state flag (no tables exist)
   const [hasNoTables, setHasNoTables] = useState(true);
-  
+
   // Reference to adapter methods for external control
   const adapterMethodsRef = useRef<TablesPageAdapterMethods | null>(null);
 
@@ -65,7 +65,7 @@ export default function DashboardPage() {
           return;
         }
         setUser(session.user);
-        
+
         // Check if user has any tables
         const response = await apiClient.tables.list();
         if (response.data.success) {
@@ -108,26 +108,50 @@ export default function DashboardPage() {
    */
   const handleConnectWebhook = useCallback(async () => {
     try {
+      console.log('[DashboardPage] Starting webhook table creation...');
       toast.loading('Creating webhook table...', { id: 'webhook-create' });
-      
+
+      // Generate unique table name with timestamp
+      const timestamp = new Date().toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      const tableName = `Webhook Table (${timestamp})`;
+
       // Create new empty table for INCOMING webhook data
       const response = await apiClient.tables.create({
-        name: 'Webhook Table',
+        name: tableName,
         description: 'Table for incoming webhook data',
         sourceType: 'manual',
         columns: []
       });
-      
+
+      console.log('[DashboardPage] Table creation response:', response.data);
+
       if (response.data.success) {
         const tableId = response.data.data.id;
+        console.log('[DashboardPage] Table created successfully:', tableId);
         toast.success('Table created!', { id: 'webhook-create' });
-        
+
         // Navigate to table page with flag to open INCOMING webhook modal
         router.push(`/dashboard/tables/${tableId}?openIncomingWebhook=true`);
+      } else {
+        throw new Error('Table creation failed - no success flag');
       }
     } catch (error: any) {
       console.error('[DashboardPage] Error creating webhook table:', error);
-      toast.error('Failed to create table', { id: 'webhook-create' });
+      console.error('[DashboardPage] Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      toast.error(error.response?.data?.error || error.message || 'Failed to create table', {
+        id: 'webhook-create',
+        duration: 5000
+      });
     }
   }, [router]);
 
@@ -141,7 +165,7 @@ export default function DashboardPage() {
 
     const file = files[0];
     console.info('[DashboardPage] CSV file upload started:', file.name);
-    
+
     // Validate file
     const validation = validateCSVFile(file);
     if (!validation.valid) {
@@ -153,36 +177,36 @@ export default function DashboardPage() {
       // Fetch existing tables to check for name collisions
       const tablesResponse = await apiClient.tables.list();
       const existingTables = tablesResponse.data.success ? tablesResponse.data.data : [];
-      
+
       // Generate base name from filename
       const baseName = generateTableNameFromFile(file.name);
-      
+
       // Generate unique name with [n] suffix if needed
       const uniqueTableName = generateUniqueTableName(baseName, existingTables);
-      
+
       console.info('[DashboardPage] Generated unique table name:', { baseName, uniqueTableName });
-      
+
       toast.loading(`Uploading ${file.name}...`, { id: 'csv-upload' });
-      
+
       // Upload CSV to API with unique name
       const response = await apiClient.tables.uploadCSV(file, uniqueTableName);
-      
+
       if (response.data.success) {
         const tableId = response.data.data.tableId;
         const tableName = response.data.data.tableName || uniqueTableName;
-        
+
         // Close upload modal immediately
         setShowUploadModal(false);
-        
+
         // Show success toast
-        toast.success(`Table "${tableName}" created successfully!`, { 
+        toast.success(`Table "${tableName}" created successfully!`, {
           id: 'csv-upload',
           duration: 3000
         });
-        
+
         // Redirect to new table page
         router.push(`/dashboard/tables/${tableId}`);
-        
+
         // Update empty state (though we're navigating away)
         setHasNoTables(false);
       }
