@@ -1,0 +1,4 @@
+scheduling build on Metal builder "builder-libyha"
+fetched snapshot sha256:f4edce3c48898ee070920d24041464473e79a6930be22088c7376f79d69d991f (396 kB bytes)
+[snapshot] fetching snapshot, complete 396 kB [took 216.762028ms]
+[snapshot] unpacking archive, complete 1.9 MB [took 28.250366ms]
