@@ -269,6 +269,7 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
  * Header: x-api-key: whk_live_<your_key>
  * 
  * This endpoint receives data from external services and creates rows in the table.
+ * It automatically creates columns for any new payload keys that aren't mapped yet.
  */
 router.post('/receive/:uniqueId', async (req: Request, res: Response) => {
   try {
@@ -321,8 +322,49 @@ router.post('/receive/:uniqueId', async (req: Request, res: Response) => {
       });
     }
 
+    // Auto-create columns for unmapped payload keys
+    let fieldMapping = webhook.fieldMapping as Record<string, string>;
+    const payloadKeys = Object.keys(payload);
+    const unmappedKeys = payloadKeys.filter(key => !fieldMapping[key]);
+
+    if (unmappedKeys.length > 0) {
+      console.log(`[Webhooks] Auto-creating columns for unmapped keys: ${unmappedKeys.join(', ')}`);
+
+      // Get the highest column order
+      const maxOrderColumn = webhook.table.columns.reduce((max, col) =>
+        col.order > max ? col.order : max, -1
+      );
+
+      // Create new columns for unmapped keys
+      const newColumns = await Promise.all(
+        unmappedKeys.map((key, index) =>
+          prisma.tableColumn.create({
+            data: {
+              tableId: webhook.tableId,
+              name: key,
+              type: 'text',
+              order: maxOrderColumn + index + 1,
+              isEditable: true,
+            },
+          })
+        )
+      );
+
+      // Update field mapping to include new columns
+      newColumns.forEach((col, index) => {
+        fieldMapping[unmappedKeys[index]] = col.id;
+      });
+
+      // Update webhook with new field mapping
+      await prisma.incomingWebhook.update({
+        where: { id: webhook.id },
+        data: { fieldMapping },
+      });
+
+      console.log(`[Webhooks] Created ${newColumns.length} new columns`);
+    }
+
     // Map payload to table columns
-    const fieldMapping = webhook.fieldMapping as Record<string, string>;
     const mappedData: Record<string, any> = {};
 
     Object.entries(fieldMapping).forEach(([sourceField, targetColumnId]) => {
@@ -370,6 +412,7 @@ router.post('/receive/:uniqueId', async (req: Request, res: Response) => {
       data: {
         rowId: row.id,
         mappedData,
+        columnsCreated: unmappedKeys.length,
       },
     });
   } catch (error: any) {
