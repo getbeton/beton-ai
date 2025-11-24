@@ -1,9 +1,0 @@
-scheduling build on Metal builder "builder-libyha"
-fetched snapshot sha256:8fb15f5ff6c2c26364b2a4375ae11ebd2e8fb42a66a084058d63f41c0fd8102b (396 kB bytes)
-[snapshot] fetching snapshot, complete 396 kB [took 1.281681617s]
-[snapshot] unpacking archive, complete 1.9 MB [took 27.404447ms]
-[internal] load build definition from frontend/Dockerfile
-[internal] load build definition from frontend/Dockerfile
-[internal] load build definition from frontend/Dockerfile
-[internal] load build definition from frontend/Dockerfile
-Build Failed: bc.Build: failed to solve: failed to read dockerfile: open frontend/Dockerfile: no such file or directory

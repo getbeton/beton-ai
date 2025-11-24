@@ -11,7 +11,7 @@ Thank you for your interest in contributing to Beton-AI! This document provides 
    cd beton-ai
    git remote add upstream https://github.com/getbeton/beton-ai.git
    ```
-3. **Set up the development environment** following the [Setup Guide](setup.md)
+3. **Set up the development environment** following the [Setup Guide](docs/setup.md)
 4. **Create a new branch** for your feature/fix:
    ```bash
    git checkout -b feature/your-feature-name

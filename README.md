@@ -1,329 +1,48 @@
 # Beton-AI
 
-An open-source automation platform that helps teams streamline their workflows and manage API integrations efficiently.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## 🚀 Tech Stack
+> An open-source automation platform that helps teams streamline their workflows and manage API integrations efficiently.
 
-- **Frontend**: Next.js 14, TypeScript, TailwindCSS, COSS UI Components
-- **Backend**: Express.js, TypeScript, Prisma ORM, ESLint
-- **Database**: PostgreSQL
-- **Queue System**: Bull Queue with Redis
-- **Authentication**: Supabase (Google, GitHub, Email/Password)
-- **Analytics**: PostHog for user behavior tracking
-- **Integrations**: Apollo, OpenAI, Findymail APIs
-- **Containerization**: Docker & Docker Compose
+## ✨ Features
 
-### UI Components & Design
+- **Data Management**: Advanced table management with import, view, filter, sort, and CSV upload capabilities.
+- **Automation**: Comprehensive webhook functionality (incoming & outbound) and background job processing.
+- **Integrations**: Connect with Apollo, OpenAI, and Findymail APIs securely.
+- **Security**: Secure authentication via Supabase (Google, GitHub, Email/Password) and API key management.
+- **Modern Stack**: Built with Next.js 14, TypeScript, Express.js, PostgreSQL, and Redis.
 
-Beton-AI uses **COSS UI** components - a modern, accessible component library built on Radix UI primitives. The application features:
-- **Header-based Navigation** - Clean, responsive top navigation (comp-589) with user menu and settings
-- **Consistent Design System** - All UI primitives (buttons, inputs, dialogs, tooltips, etc.) from COSS
-- **Analytics Integration** - Built-in PostHog tracking on interactive components
-- **Accessibility First** - ARIA labels and keyboard navigation throughout
-- **Advanced Table Management** - Powered by @tanstack/react-table with sorting, filtering, and pagination
-- **Toast Notifications** - Sonner library for elegant user feedback
-- **Drag & Drop Uploads** - Modern file upload with progress tracking
+## 🚀 Quick Start
 
-## 📋 Features
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/getbeton/beton-ai.git
+    cd beton-ai
+    ```
 
-- 🔐 **Secure Authentication** - Multiple sign-in options via Supabase (Google, GitHub, Email/Password)
-- 🔑 **API Key Management** - Store and manage API keys for various services
-- 🎨 **Modern UI** - Header-based navigation with clean, professional interface
-- 📊 **Advanced Table Management** - Import, view, filter, sort, and manage data tables with ease
-- 📁 **CSV Upload** - Drag-and-drop file uploads with real-time progress tracking
-- 🔗 **Webhooks** - Bidirectional webhook support for automation and integrations
-- 📈 **Analytics Dashboard** - PostHog integration for user behavior insights
-- 🤝 **Apollo, OpenAI, Findymail Integrations** - Connect with real APIs via secure key storage
-- 🐳 **Docker Ready** - Full containerization support with automated database setup
-- 🔄 **Real-time Updates** - WebSocket support and dynamic page refreshing
-- 🔔 **Toast Notifications** - Elegant user feedback with Sonner
-- ⚡ **Background Job Processing** - Bull Queue with Redis for async tasks
+2.  **Run the setup script**
+    ```bash
+    ./setup.sh
+    ```
 
-## 🔗 Webhooks
+3.  **Start development**
+    ```bash
+    ./dev.sh
+    ```
 
-Beton-AI provides comprehensive webhook functionality for seamless automation and external integrations.
+For detailed setup instructions, including manual configuration and Docker usage, see the [Setup Guide](docs/setup.md).
 
-### Incoming Webhooks
-Receive data from external services and automatically populate your tables:
-- **Unique URLs & API Keys** - Each table gets a dedicated webhook endpoint with secure API key authentication
-- **Visible on Table Page** - Webhook URL and API key are prominently displayed on your table page for easy access
-- **One-Click Copy** - Copy webhook URL and API key to clipboard with a single click
-- **Streamlined Setup** - Single-screen configuration flow with inline field mapping and testing
-- **Visual Field Mapping** - Map external JSON fields to table columns with dropdowns
-- **Auto-Extraction** - Automatically detect and extract fields from sample JSON
-- **Real-time Validation** - Instant feedback on required field mapping
-- **Activity Stats** - Monitor total received webhooks and last received timestamp
-- **Toggle Control** - Pause/resume webhooks without deleting configuration
+## 📚 Documentation
 
-**How to Find Your Webhook:**
-1. Navigate to your table detail page
-2. Look for the "Incoming Webhook" card below the table toolbar
-3. Your webhook URL, API key, and stats are displayed in the card
-4. Click the copy icon next to either field to copy to clipboard
-5. Use the "Incoming Webhook" button in the toolbar to configure field mappings
-
-**Security Note:** API keys are only shown in full when first created. After that, they're masked for security. Make sure to save your API key securely when you first create a webhook.
-
-### Outbound Webhooks
-Send data to external services when events occur in your tables:
-- **Event Selection** - Choose which events trigger webhooks (row.created, row.updated, row.deleted)
-- **URL Configuration** - Point to any HTTP(S) endpoint (Zapier, Make, custom APIs)
-- **Delivery History** - View detailed logs of all webhook deliveries
-- **Test Functionality** - Send test payloads to verify your endpoint
-- **Auto-retry** - Automatic retry logic for failed deliveries
-- **Pause/Resume** - Control webhook execution without losing configuration
-
-**Use Cases:**
-- Send new leads to your CRM automatically
-- Trigger email campaigns when rows are added
-- Sync data with third-party tools
-- Build custom automation workflows
-- Integrate with Zapier, Make, and other automation platforms
-
-**Troubleshooting:**
-- **Can't find webhook URL?** Make sure you've created an incoming webhook for your table using the "Incoming Webhook" button
-- **Webhook not receiving data?** Check that the webhook is marked as "Active" in the webhook info card
-- **Field mapping issues?** Ensure all required table columns are mapped to incoming JSON fields
-- **API key not working?** Verify you're sending the API key in the request headers as specified in the documentation
-
-See the [Webhook Documentation](./prd/webhooks/) for detailed implementation guides.
-
-## 🤝 Apollo Integration
-
-Beton-AI talks directly to Apollo's public API in all environments. The mock Apollo service has been removed in favor of real API integration. 
-
-**How it works:**
-1. Add your Apollo API key securely via the Integrations page
-2. The backend validates your key through Supabase-authenticated routes
-3. All searches use the real Apollo API with your credentials
-4. Background jobs handle bulk downloads with rate limiting and retry logic
-
-## 🛠️ Development Setup
-
-### Prerequisites
-
-- Node.js 18+ and npm
-- Docker and Docker Compose
-- PostgreSQL (if running locally)
-
-### 🚀 **First Time Setup (Recommended)**
-
-For new users, use our automated setup script:
-
-```bash
-git clone https://github.com/getbeton/beton-ai.git
-cd beton-ai
-./setup.sh
-```
-
-This script will:
-- ✅ Create all environment files automatically
-- ✅ Install dependencies
-- ✅ Build and start backend, frontend, PostgreSQL, and Redis services
-- ✅ Run database migrations
-- ✅ Start the complete development environment
-
-**Services will be available at:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
-- PostgreSQL: localhost:5432
-- Redis: localhost:6379
-
-### 🔧 **Development Mode Selection**
-
-Use the interactive development script:
-
-```bash
-./dev.sh
-```
-
-Choose your preferred development mode:
-- **Option 1**: Full Docker (recommended for first-time setup)
-- **Option 2**: Frontend Dev + Backend Docker (hot reload frontend)
-- **Option 3**: Backend Dev + Frontend Docker (hot reload backend)  
-- **Option 4**: Both Dev (hot reload both services)
-- **Configure Apollo**: Provide your real API key inside the Integrations UI after signing in
-
-### Manual Environment Setup (Alternative)
-
-If you prefer manual setup:
-
-**Backend (.env in /backend):**
-```env
-DATABASE_URL=postgresql://postgres:postgres123@localhost:5432/beton_ai
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-JWT_SECRET=your_jwt_secret
-PORT=3001
-```
-
-**Frontend (.env.local in /frontend):**
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-NEXT_PUBLIC_API_URL=http://localhost:3001
-```
-
-**Manual Database Setup:**
-```bash
-# Copy environment files
-cp backend/env.example backend/.env
-cp frontend/env.local.example frontend/.env.local
-
-# Start PostgreSQL
-docker-compose up -d postgres
-
-# Run migrations
-docker-compose run --rm backend npx prisma migrate deploy
-
-# Start all services
-docker-compose up
-```
-
-## 🐳 Docker Deployment
-
-### Using Docker Compose (Recommended)
-
-```bash
-# Build and start all services
-npm run docker:build
-npm run docker:up
-
-# Stop all services
-npm run docker:down
-```
-
-### Manual Docker Commands
-
-```bash
-# Build images
-docker-compose build
-
-# Start services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-```
-
-## 📁 Project Structure
-
-```
-beton-ai/
-├── backend/                 # Express.js API server
-│   ├── src/
-│   │   ├── routes/         # API routes (auth, tables, integrations, etc.)
-│   │   ├── middleware/     # Custom middleware (auth, error handling)
-│   │   ├── services/       # Business logic (Apollo, OpenAI, Findymail)
-│   │   ├── queues/         # Bull Queue jobs (AI tasks, bulk downloads)
-│   │   ├── workers/        # Background job workers
-│   │   ├── config/         # Configuration files
-│   │   └── types/          # TypeScript definitions
-│   ├── prisma/             # Database schema and migrations
-│   └── Dockerfile
-├── frontend/               # Next.js application
-│   ├── src/
-│   │   ├── app/           # App router pages
-│   │   ├── components/    # Reusable components
-│   │   │   ├── ui/       # COSS UI components
-│   │   │   ├── layout/   # AppShell, DashboardShell
-│   │   │   ├── dashboard/ # Dashboard-specific components
-│   │   │   ├── navigation/ # Navigation components
-│   │   │   └── upload/   # File upload components
-│   │   ├── lib/          # Utilities and configurations
-│   │   │   ├── analytics.ts    # PostHog helpers
-│   │   │   ├── posthog.ts      # PostHog initialization
-│   │   │   └── tableTransformers.ts # Data transformers
-│   │   ├── hooks/        # Custom React hooks
-│   │   └── types/        # TypeScript definitions
-│   └── Dockerfile
-├── prd/                    # Product requirement documents
-├── docker-compose.yml      # Multi-container configuration
-└── README.md              # This file
-```
-
-## 🔧 Available Scripts
-
-- `npm run dev` - Start both frontend and backend in development
-- `npm run build` - Build both applications for production
-- `npm run start` - Start both applications in production mode
-- `npm run docker:build` - Build Docker images
-- `npm run docker:up` - Start with Docker Compose
-- `npm run docker:down` - Stop Docker containers
-
-## 🌐 Ports
-
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:3001
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
-
-## 📊 Analytics Integration
-
-Beton-AI uses **PostHog** for analytics and user behavior tracking:
-
-- **Event Tracking** - Captures user interactions across the application
-- **Navigation Analytics** - Tracks page visits and navigation patterns
-- **UI Component Analytics** - Monitors button clicks, form submissions, and component interactions
-- **Privacy First** - Configurable tracking with opt-out support
-
-### PostHog Setup
-
-Add your PostHog API key to the frontend environment:
-
-```env
-NEXT_PUBLIC_POSTHOG_KEY=your_posthog_key
-NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
-```
-
-Analytics helpers are available in `frontend/src/lib/analytics.ts`:
-- `captureUiEvent()` - Track UI interactions
-- `captureNavigation()` - Track navigation events
-- `captureLandingAction()` - Track landing page actions
-
-## 🗄️ Database Management
-
-### Prisma Commands (via Docker)
-
-```bash
-# View database with Prisma Studio
-docker-compose run --rm backend npx prisma studio --browser none
-
-# Generate Prisma client
-docker-compose run --rm backend npx prisma generate
-
-# Deploy migrations (production)
-docker-compose run --rm backend npx prisma migrate deploy
-
-# Create new migration (development)
-docker-compose run --rm backend npx prisma migrate dev
-
-# Reset database (⚠️ destructive)
-docker-compose run --rm backend npx prisma migrate reset
-```
-
-### Database Health Check
-
-The PostgreSQL container includes health checks that ensure the database is ready before the backend starts. The backend startup script will:
-
-1. Wait for PostgreSQL to be healthy
-2. Automatically run migrations on startup
-3. Start the Express server
-
-This ensures consistent database state across all environments.
+- [Setup Guide](docs/setup.md) - Detailed installation and configuration instructions.
+- [Webhooks](docs/webhooks.md) - Guide to using incoming and outbound webhooks.
+- [Integrations](docs/integrations.md) - Details on connected services like Apollo and OpenAI.
+- [Product Specs](prd/README.md) - In-depth product requirement documents.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started, our development workflow, and code style guidelines.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -18,10 +18,20 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down"
   },
-  "keywords": ["automation", "api", "typescript", "nextjs", "express"],
+  "keywords": [
+    "automation",
+    "api",
+    "typescript",
+    "nextjs",
+    "express"
+  ],
   "author": "Beton-AI Team",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "openai": "^6.9.1"
   }
-} 
+}

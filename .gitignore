@@ -125,4 +125,4 @@ railway.config.json
 railway-cli-notes.md
 
 # PRDs
-prd/
+prd/data/*.json
