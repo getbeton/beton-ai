@@ -1,28 +1,28 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
-import { 
-  AuthenticatedRequest, 
-  ApiResponse, 
+
+import {
+  AuthenticatedRequest,
+  ApiResponse,
   CreatePlatformApiKeyRequest,
   UpdatePlatformApiKeyRequest
 } from '../types';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // Middleware to check if user is admin (you can implement your own logic)
 const requireAdmin = (req: AuthenticatedRequest, res: any, next: any) => {
   // For now, this is a placeholder. In production, implement proper admin check
   // You might check against a list of admin user IDs or roles
   const adminEmails = ['admin@beton-ai.com']; // Configure this in environment variables
-  
+
   if (!req.user?.email || !adminEmails.includes(req.user.email)) {
-    return res.status(403).json({ 
-      success: false, 
-      error: 'Admin access required' 
+    return res.status(403).json({
+      success: false,
+      error: 'Admin access required'
     });
   }
-  
+
   next();
 };
 
@@ -41,9 +41,9 @@ router.get('/', requireAdmin, async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error fetching platform keys:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch platform keys' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch platform keys'
     });
   }
 });
@@ -66,9 +66,9 @@ router.get('/service/:serviceName', requireAdmin, async (req: AuthenticatedReque
     res.json(response);
   } catch (error) {
     console.error('Error fetching platform keys:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch platform keys' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch platform keys'
     });
   }
 });
@@ -80,23 +80,23 @@ router.post('/', requireAdmin, async (req: AuthenticatedRequest, res) => {
 
     // Validate required fields
     if (!serviceName || !apiKey) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'serviceName and apiKey are required' 
+      return res.status(400).json({
+        success: false,
+        error: 'serviceName and apiKey are required'
       });
     }
 
     // Check if platform key with same service already exists
     const existingKey = await prisma.platformApiKey.findUnique({
-      where: { 
+      where: {
         serviceName: serviceName
       }
     });
 
     if (existingKey) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Platform key with this service already exists' 
+      return res.status(400).json({
+        success: false,
+        error: 'Platform key with this service already exists'
       });
     }
 
@@ -118,9 +118,9 @@ router.post('/', requireAdmin, async (req: AuthenticatedRequest, res) => {
     res.status(201).json(response);
   } catch (error) {
     console.error('Error creating platform key:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to create platform key' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create platform key'
     });
   }
 });
@@ -137,9 +137,9 @@ router.put('/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
     });
 
     if (!existingKey) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Platform key not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Platform key not found'
       });
     }
 
@@ -163,9 +163,9 @@ router.put('/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error updating platform key:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to update platform key' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update platform key'
     });
   }
 });
@@ -184,17 +184,17 @@ router.delete('/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
     });
 
     if (!existingKey) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Platform key not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Platform key not found'
       });
     }
 
     // Check if any integrations are using this key
     if (existingKey.integrations.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Cannot delete platform key. It is being used by ${existingKey.integrations.length} integration(s)` 
+      return res.status(400).json({
+        success: false,
+        error: `Cannot delete platform key. It is being used by ${existingKey.integrations.length} integration(s)`
       });
     }
 
@@ -210,9 +210,9 @@ router.delete('/:id', requireAdmin, async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error deleting platform key:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to delete platform key' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete platform key'
     });
   }
 });
@@ -245,9 +245,9 @@ router.get('/stats', requireAdmin, async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error fetching platform key stats:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch platform key statistics' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch platform key statistics'
     });
   }
 });

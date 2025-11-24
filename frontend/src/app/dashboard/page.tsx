@@ -168,26 +168,23 @@ export default function DashboardPage() {
       const response = await apiClient.tables.uploadCSV(file, uniqueTableName);
       
       if (response.data.success) {
+        const tableId = response.data.data.tableId;
         const tableName = response.data.data.tableName || uniqueTableName;
-        toast.success(`Table "${tableName}" created successfully!`, { 
-          id: 'csv-upload',
-          duration: 5000
-        });
         
-        // Close upload modal
+        // Close upload modal immediately
         setShowUploadModal(false);
         
-        // Update empty state
-        setHasNoTables(false);
+        // Show success toast
+        toast.success(`Table "${tableName}" created successfully!`, { 
+          id: 'csv-upload',
+          duration: 3000
+        });
         
-        // Refresh table list to show new table
-        if (adapterMethodsRef.current) {
-          // Wait a bit for backend processing, then refetch
-          setTimeout(() => {
-            adapterMethodsRef.current?.refetch();
-            toast.success('Table is ready!', { duration: 3000 });
-          }, 2000);
-        }
+        // Redirect to new table page
+        router.push(`/dashboard/tables/${tableId}`);
+        
+        // Update empty state (though we're navigating away)
+        setHasNoTables(false);
       }
     } catch (error: any) {
       console.error('[DashboardPage] CSV upload failed:', error);

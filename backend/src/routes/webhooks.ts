@@ -15,12 +15,23 @@
  */
 
 import express, { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+
 import { authMiddleware } from '../middleware/auth';
 import axios from 'axios';
+import crypto from 'crypto';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
+
+/**
+ * Generate a secure API key for webhook authentication
+ * Format: whk_live_<32_random_hex_chars>
+ */
+function generateApiKey(): string {
+  const randomBytes = crypto.randomBytes(16);
+  const hexString = randomBytes.toString('hex');
+  return `whk_live_${hexString}`;
+}
 
 // ============================================================================
 // INCOMING WEBHOOK ROUTES
@@ -63,12 +74,16 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
     const uniqueId = `${tableId}_${Date.now()}`;
     const webhookUrl = `${process.env.API_BASE_URL || 'http://localhost:3001'}/api/webhooks/receive/${uniqueId}`;
 
+    // Generate secure API key for webhook authentication
+    const apiKey = generateApiKey();
+
     // Create webhook
     const webhook = await prisma.incomingWebhook.create({
       data: {
         userId,
         tableId,
         url: webhookUrl,
+        apiKey,
         isActive,
         fieldMapping,
       },
@@ -247,15 +262,32 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 /**
- * Receive webhook data (public endpoint)
+ * Receive webhook data (public endpoint with API key authentication)
  * POST /api/webhooks/receive/:uniqueId
+ * 
+ * Authentication: Requires API key in request headers
+ * Header: x-api-key: whk_live_<your_key>
+ * 
+ * This endpoint receives data from external services and creates rows in the table.
  */
 router.post('/receive/:uniqueId', async (req: Request, res: Response) => {
   try {
     const { uniqueId } = req.params;
     const payload = req.body;
 
+    // Extract API key from headers
+    const apiKey = req.headers['x-api-key'] as string;
+
     console.log(`[Webhooks] Received webhook data for: ${uniqueId}`);
+
+    // Validate API key is provided
+    if (!apiKey) {
+      console.log(`[Webhooks] Missing API key for webhook: ${uniqueId}`);
+      return res.status(401).json({
+        success: false,
+        error: 'Missing API key. Please provide x-api-key header.',
+      });
+    }
 
     // Find webhook by URL
     const webhookUrl = `${process.env.API_BASE_URL || 'http://localhost:3001'}/api/webhooks/receive/${uniqueId}`;
@@ -269,6 +301,15 @@ router.post('/receive/:uniqueId', async (req: Request, res: Response) => {
       return res.status(404).json({
         success: false,
         error: 'Webhook not found',
+      });
+    }
+
+    // Validate API key matches
+    if (webhook.apiKey !== apiKey) {
+      console.log(`[Webhooks] Invalid API key for webhook: ${webhook.id}`);
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid API key',
       });
     }
 

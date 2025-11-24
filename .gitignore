@@ -120,7 +120,7 @@ frontend/out/
 # Local-only docs and Railway CLI artifacts
 development.md
 .railway/
-railway.json
+
 railway.config.json
 railway-cli-notes.md
 

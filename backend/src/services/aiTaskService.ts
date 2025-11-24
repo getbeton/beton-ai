@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+
 import { ServiceFactory } from './serviceFactory';
 import { v4 as uuidv4 } from 'uuid';
 
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export interface AiTaskJobData {
   jobId: string;
@@ -37,7 +37,7 @@ export interface AiTaskExecutionResult {
 }
 
 export class AiTaskService {
-  
+
   /**
    * Create a new AI task job
    */
@@ -46,12 +46,12 @@ export class AiTaskService {
     request: CreateAiTaskJobRequest
   ): Promise<string> {
     try {
-      const { 
-        tableId, 
-        columnId, 
-        integrationId, 
-        prompt: promptOverride, 
-        modelConfig = {}, 
+      const {
+        tableId,
+        columnId,
+        integrationId,
+        prompt: promptOverride,
+        modelConfig = {},
         executionScope,
         targetRowIds = [],
         targetCellId
@@ -82,10 +82,10 @@ export class AiTaskService {
 
       // Verify integration belongs to user and is active
       const integration = await prisma.integration.findFirst({
-        where: { 
-          id: integrationId, 
-          userId, 
-          isActive: true 
+        where: {
+          id: integrationId,
+          userId,
+          isActive: true
         }
       });
 
@@ -96,19 +96,19 @@ export class AiTaskService {
       // Get prompt from column settings or use override
       const columnSettings = column.settings as any;
       const finalPrompt = promptOverride || columnSettings.aiTask?.prompt;
-      
+
       if (!finalPrompt) {
         throw new Error('No prompt specified in column or request');
       }
 
       // Determine target cells based on execution scope
       let targetCells: { id: string; rowId: string }[] = [];
-      
+
       // Ensure all rows have cells for this column (fix for existing AI task columns)
       if (executionScope === 'column') {
         await this.ensureAllRowsHaveCells(tableId, columnId);
       }
-      
+
       switch (executionScope) {
         case 'column':
           // Get all cells in this column
@@ -117,33 +117,33 @@ export class AiTaskService {
             select: { id: true, rowId: true }
           });
           break;
-          
+
         case 'selected_rows':
           if (!targetRowIds || targetRowIds.length === 0) {
             throw new Error('No target rows specified for selected_rows scope');
           }
           targetCells = await prisma.tableCell.findMany({
-            where: { 
+            where: {
               columnId,
               rowId: { in: targetRowIds }
             },
             select: { id: true, rowId: true }
           });
           break;
-          
+
         case 'single_row':
           if (!targetRowIds || targetRowIds.length !== 1) {
             throw new Error('Single row ID required for single_row scope');
           }
           targetCells = await prisma.tableCell.findMany({
-            where: { 
+            where: {
               columnId,
               rowId: targetRowIds[0]
             },
             select: { id: true, rowId: true }
           });
           break;
-          
+
         case 'single_cell':
           if (!targetCellId) {
             throw new Error('Target cell ID required for single_cell scope');
@@ -156,7 +156,7 @@ export class AiTaskService {
             targetCells = [cell];
           }
           break;
-          
+
         default:
           throw new Error('Invalid execution scope');
       }
@@ -183,7 +183,7 @@ export class AiTaskService {
       });
 
       // Create execution records for each target cell
-      const executionPromises = targetCells.map(cell => 
+      const executionPromises = targetCells.map(cell =>
         prisma.aiTaskExecution.create({
           data: {
             jobId: aiTaskJob.id,
@@ -208,7 +208,7 @@ export class AiTaskService {
    * Substitute variables in prompt with actual row data
    */
   static async substitutePromptVariables(
-    prompt: string, 
+    prompt: string,
     cellId: string
   ): Promise<string> {
     try {
@@ -235,14 +235,14 @@ export class AiTaskService {
       // Build row data map with multiple alias formats
       const rowData: Record<string, string> = {};
       const columnAliases: Record<string, string> = {};
-      
+
       cell.row.cells.forEach(rowCell => {
         const columnName = rowCell.column.name;
         const columnValue = rowCell.value || '';
-        
+
         // Store with original name
         rowData[columnName] = columnValue;
-        
+
         // Create aliases for different formats
         const aliases = this.generateColumnAliases(columnName);
         aliases.forEach(alias => {
@@ -253,18 +253,18 @@ export class AiTaskService {
       // Enhanced regex to match variables with spaces, underscores, and word characters
       const processedPrompt = prompt.replace(/\{\{([^}]+)\}\}/g, (match, variableName) => {
         const trimmedVar = variableName.trim();
-        
+
         // Try exact match first
         if (rowData[trimmedVar]) {
           return rowData[trimmedVar];
         }
-        
+
         // Try case-insensitive alias lookup
         const lowerVar = trimmedVar.toLowerCase();
         if (columnAliases[lowerVar]) {
           return columnAliases[lowerVar];
         }
-        
+
         // Keep original if no match found
         return match;
       });
@@ -282,33 +282,33 @@ export class AiTaskService {
    */
   private static generateColumnAliases(columnName: string): string[] {
     const aliases: string[] = [columnName];
-    
+
     // Add space-to-underscore variant
     if (columnName.includes('_')) {
       aliases.push(columnName.replace(/_/g, ' '));
     }
-    
+
     // Add underscore-to-space variant  
     if (columnName.includes(' ')) {
       aliases.push(columnName.replace(/\s+/g, '_'));
     }
-    
+
     // Add variations with different casing
     aliases.push(columnName.toLowerCase());
     aliases.push(columnName.toUpperCase());
-    
+
     // Add camelCase variant
     const camelCase = columnName.replace(/[-_\s]+(.)?/g, (_, char) => char ? char.toUpperCase() : '');
     if (camelCase !== columnName) {
       aliases.push(camelCase);
     }
-    
+
     // Add snake_case variant
     const snakeCase = columnName.replace(/\s+/g, '_').toLowerCase();
     if (snakeCase !== columnName) {
       aliases.push(snakeCase);
     }
-    
+
     return [...new Set(aliases)]; // Remove duplicates
   }
 
@@ -375,12 +375,12 @@ export class AiTaskService {
       // Check if the result indicates success
       // ServiceFactory returns raw response for successful calls, or {success: false, error: ...} for failures
       const isSuccess = result && (result.content || result.success === true);
-      
+
       if (isSuccess) {
         // Extract usage information if available
         const usage = result.usage || {};
         const tokensUsed = usage.totalTokens || 0;
-        
+
         // Calculate cost (this will depend on the service)
         let cost = 0;
         if (integration.serviceName === 'openai' && usage.promptTokens && usage.completionTokens) {
@@ -552,7 +552,7 @@ export class AiTaskService {
           // Allow alphanumeric, spaces, underscores, and hyphens
           return !/^[a-zA-Z_][a-zA-Z0-9_\s-]*$/.test(variableName);
         });
-        
+
         if (invalidVariables.length > 0) {
           errors.push(`Invalid variable names: ${invalidVariables.join(', ')}`);
         }

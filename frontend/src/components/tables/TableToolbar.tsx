@@ -39,6 +39,7 @@ import { Search, Filter, Plus, Trash2 } from 'lucide-react';
 import { IncomingWebhookButton } from '@/components/webhooks/IncomingWebhookButton';
 import { OutboundWebhookButton } from '@/components/webhooks/OutboundWebhookButton';
 import type { TableColumn } from '@/lib/api';
+import type { IncomingWebhook } from '@/components/webhooks/types';
 
 interface TableToolbarProps {
   // Search
@@ -63,6 +64,7 @@ interface TableToolbarProps {
   columns: TableColumn[];
   onExportCSV: () => void;
   autoOpenIncomingWebhook?: boolean;
+  onIncomingWebhookUpdated?: (webhook: IncomingWebhook | null) => void;
 }
 
 /**
@@ -86,6 +88,7 @@ export function TableToolbar({
   columns,
   onExportCSV,
   autoOpenIncomingWebhook = false,
+  onIncomingWebhookUpdated,
 }: TableToolbarProps) {
   return (
     <div className="flex items-center justify-between gap-4 p-4 border rounded-lg bg-card">
@@ -129,6 +132,7 @@ export function TableToolbar({
           tableName={tableName}
           columns={columns}
           autoOpen={autoOpenIncomingWebhook}
+          onWebhookUpdated={onIncomingWebhookUpdated}
         />
         
         {/* Export & Outbound Webhooks */}

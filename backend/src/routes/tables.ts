@@ -1,8 +1,8 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
-import { 
-  AuthenticatedRequest, 
-  ApiResponse 
+
+import {
+  AuthenticatedRequest,
+  ApiResponse
 } from '../types';
 import multer from 'multer';
 import csv from 'csv-parser';
@@ -11,7 +11,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // Column type definitions
 export const COLUMN_TYPES = {
@@ -259,7 +259,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
     const isArchived = archived === 'true';
 
     const tables = await prisma.userTable.findMany({
-      where: { 
+      where: {
         userId,
         isArchived
       },
@@ -282,9 +282,9 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error fetching tables:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch tables' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch tables'
     });
   }
 });
@@ -298,10 +298,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
     }
 
     const { id } = req.params;
-    const { 
-      page = 1, 
-      limit = 50, 
-      sortBy, 
+    const {
+      page = 1,
+      limit = 50,
+      sortBy,
       sortOrder = 'asc',
       search,
       filters: filtersParam
@@ -313,18 +313,18 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
       try {
         filters = JSON.parse(filtersParam);
       } catch (error) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Invalid filters format' 
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid filters format'
         });
       }
     }
 
     // Get table with columns first
     const table = await prisma.userTable.findFirst({
-      where: { 
-        id, 
-        userId 
+      where: {
+        id,
+        userId
       },
       include: {
         columns: {
@@ -334,9 +334,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!table) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Table not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found'
       });
     }
 
@@ -351,10 +351,10 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
 
       // Search condition - search across all text columns
       if (search) {
-        const textColumns = table.columns.filter(col => 
+        const textColumns = table.columns.filter(col =>
           ['text', 'email', 'url'].includes(col.type)
         );
-        
+
         if (textColumns.length > 0) {
           searchConditions.push({
             OR: textColumns.map(column => ({
@@ -467,9 +467,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error fetching table:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch table' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch table'
     });
   }
 });
@@ -485,9 +485,9 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     const { name, description, sourceType, sourceId, columns = [] }: CreateTableRequest = req.body;
 
     if (!name?.trim()) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Table name is required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Table name is required'
       });
     }
 
@@ -502,18 +502,18 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     });
 
     if (existingTable) {
-      return res.status(409).json({ 
-        success: false, 
-        error: 'Table with this name already exists' 
+      return res.status(409).json({
+        success: false,
+        error: 'Table with this name already exists'
       });
     }
 
     // Validate column types
     for (const column of columns) {
       if (!validateColumnType(column.type)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: `Invalid column type: ${column.type}` 
+        return res.status(400).json({
+          success: false,
+          error: `Invalid column type: ${column.type}`
         });
       }
     }
@@ -558,9 +558,9 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     res.status(201).json(response);
   } catch (error) {
     console.error('Error creating table:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to create table' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create table'
     });
   }
 });
@@ -582,9 +582,9 @@ router.put('/:id', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!existingTable) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Table not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found'
       });
     }
 
@@ -600,9 +600,9 @@ router.put('/:id', async (req: AuthenticatedRequest, res) => {
       });
 
       if (nameConflict) {
-        return res.status(409).json({ 
-          success: false, 
-          error: 'Table with this name already exists' 
+        return res.status(409).json({
+          success: false,
+          error: 'Table with this name already exists'
         });
       }
     }
@@ -635,9 +635,9 @@ router.put('/:id', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error updating table:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to update table' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update table'
     });
   }
 });
@@ -658,9 +658,9 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!existingTable) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Table not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found'
       });
     }
 
@@ -676,9 +676,9 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error deleting table:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to delete table' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete table'
     });
   }
 });
@@ -695,16 +695,16 @@ router.post('/:id/columns', async (req: AuthenticatedRequest, res) => {
     const { name, type, isRequired, isEditable, defaultValue, settings }: CreateColumnRequest = req.body;
 
     if (!name?.trim()) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Column name is required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Column name is required'
       });
     }
 
     if (!validateColumnType(type)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Invalid column type: ${type}` 
+      return res.status(400).json({
+        success: false,
+        error: `Invalid column type: ${type}`
       });
     }
 
@@ -717,18 +717,18 @@ router.post('/:id/columns', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!table) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Table not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found'
       });
     }
 
     // Check if column name already exists
     const existingColumn = table.columns.find(col => col.name === name.trim());
     if (existingColumn) {
-      return res.status(409).json({ 
-        success: false, 
-        error: 'Column with this name already exists' 
+      return res.status(409).json({
+        success: false,
+        error: 'Column with this name already exists'
       });
     }
 
@@ -775,9 +775,9 @@ router.post('/:id/columns', async (req: AuthenticatedRequest, res) => {
     res.status(201).json(response);
   } catch (error) {
     console.error('Error adding column:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to add column' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add column'
     });
   }
 });
@@ -799,9 +799,9 @@ router.put('/:id/columns/:columnId', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!table) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Table not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found'
       });
     }
 
@@ -811,9 +811,9 @@ router.put('/:id/columns/:columnId', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!existingColumn) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Column not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Column not found'
       });
     }
 
@@ -831,9 +831,9 @@ router.put('/:id/columns/:columnId', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error updating column:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to update column' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update column'
     });
   }
 });
@@ -854,9 +854,9 @@ router.delete('/:id/columns/:columnId', async (req: AuthenticatedRequest, res) =
     });
 
     if (!table) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Table not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found'
       });
     }
 
@@ -866,9 +866,9 @@ router.delete('/:id/columns/:columnId', async (req: AuthenticatedRequest, res) =
     });
 
     if (!existingColumn) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Column not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Column not found'
       });
     }
 
@@ -884,9 +884,9 @@ router.delete('/:id/columns/:columnId', async (req: AuthenticatedRequest, res) =
     res.json(response);
   } catch (error) {
     console.error('Error deleting column:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to delete column' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete column'
     });
   }
 });
@@ -916,9 +916,9 @@ router.post('/:id/rows', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!table) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Table not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found'
       });
     }
 
@@ -934,8 +934,8 @@ router.post('/:id/rows', async (req: AuthenticatedRequest, res) => {
 
     // Create cells for each column
     const cellPromises = table.columns.map(column => {
-      const value = data[column.name] !== undefined ? 
-        formatCellValue(data[column.name], column.type as ColumnType) : 
+      const value = data[column.name] !== undefined ?
+        formatCellValue(data[column.name], column.type as ColumnType) :
         (column.defaultValue ? formatCellValue(column.defaultValue, column.type as ColumnType) : null);
 
       return prisma.tableCell.create({
@@ -970,9 +970,9 @@ router.post('/:id/rows', async (req: AuthenticatedRequest, res) => {
     res.status(201).json(response);
   } catch (error) {
     console.error('Error adding row:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to add row' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add row'
     });
   }
 });
@@ -989,9 +989,9 @@ router.post('/:id/rows/bulk', async (req: AuthenticatedRequest, res) => {
     const { rows }: BulkRowRequest = req.body;
 
     if (!Array.isArray(rows) || rows.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Rows array is required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Rows array is required'
       });
     }
 
@@ -1009,9 +1009,9 @@ router.post('/:id/rows/bulk', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!table) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Table not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found'
       });
     }
 
@@ -1028,8 +1028,8 @@ router.post('/:id/rows/bulk', async (req: AuthenticatedRequest, res) => {
       });
 
       const cellPromises = table.columns.map(column => {
-        const value = rowData[column.name] !== undefined ? 
-          formatCellValue(rowData[column.name], column.type as ColumnType) : 
+        const value = rowData[column.name] !== undefined ?
+          formatCellValue(rowData[column.name], column.type as ColumnType) :
           (column.defaultValue ? formatCellValue(column.defaultValue, column.type as ColumnType) : null);
 
         return prisma.tableCell.create({
@@ -1054,9 +1054,9 @@ router.post('/:id/rows/bulk', async (req: AuthenticatedRequest, res) => {
     res.status(201).json(response);
   } catch (error) {
     console.error('Error bulk adding rows:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to add rows' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add rows'
     });
   }
 });
@@ -1078,9 +1078,9 @@ router.put('/:id/rows/:rowId/cells/:columnId', async (req: AuthenticatedRequest,
     });
 
     if (!table) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Table not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found'
       });
     }
 
@@ -1090,9 +1090,9 @@ router.put('/:id/rows/:rowId/cells/:columnId', async (req: AuthenticatedRequest,
     });
 
     if (!column) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Column not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Column not found'
       });
     }
 
@@ -1125,9 +1125,9 @@ router.put('/:id/rows/:rowId/cells/:columnId', async (req: AuthenticatedRequest,
     res.json(response);
   } catch (error) {
     console.error('Error updating cell:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to update cell' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update cell'
     });
   }
 });
@@ -1148,9 +1148,9 @@ router.delete('/:id/rows/:rowId', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!table) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Table not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found'
       });
     }
 
@@ -1160,9 +1160,9 @@ router.delete('/:id/rows/:rowId', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!existingRow) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Row not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Row not found'
       });
     }
 
@@ -1178,9 +1178,9 @@ router.delete('/:id/rows/:rowId', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error deleting row:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to delete row' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete row'
     });
   }
 });
@@ -1197,9 +1197,9 @@ router.post('/:id/import/apollo', async (req: AuthenticatedRequest, res) => {
     const { searchResults } = req.body;
 
     if (!searchResults?.people || !Array.isArray(searchResults.people)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid search results data' 
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid search results data'
       });
     }
 
@@ -1217,9 +1217,9 @@ router.post('/:id/import/apollo', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!table) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Table not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found'
       });
     }
 
@@ -1314,9 +1314,9 @@ router.post('/:id/import/apollo', async (req: AuthenticatedRequest, res) => {
     res.status(201).json(response);
   } catch (error) {
     console.error('Error importing Apollo data:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to import Apollo data' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to import Apollo data'
     });
   }
 });
@@ -1345,9 +1345,9 @@ router.post('/upload-csv', upload.single('file'), async (req: AuthenticatedReque
     }
 
     if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No CSV file provided' 
+      return res.status(400).json({
+        success: false,
+        error: 'No CSV file provided'
       });
     }
 
@@ -1361,13 +1361,13 @@ router.post('/upload-csv', upload.single('file'), async (req: AuthenticatedReque
     // Parse CSV headers to determine column structure
     const csvHeaders: string[] = [];
     const sampleRows: Record<string, any>[] = [];
-    
+
     try {
       // Read first few rows to analyze structure
       await new Promise<void>((resolve, reject) => {
         let rowCount = 0;
         const maxSampleRows = 5;
-        
+
         fs.createReadStream(filePath)
           .pipe(csv())
           .on('headers', (headers: string[]) => {
@@ -1393,9 +1393,9 @@ router.post('/upload-csv', upload.single('file'), async (req: AuthenticatedReque
       if (csvHeaders.length === 0) {
         // Clean up uploaded file
         fs.unlinkSync(filePath);
-        return res.status(400).json({ 
-          success: false, 
-          error: 'CSV file appears to be empty or invalid' 
+        return res.status(400).json({
+          success: false,
+          error: 'CSV file appears to be empty or invalid'
         });
       }
 
@@ -1403,10 +1403,10 @@ router.post('/upload-csv', upload.single('file'), async (req: AuthenticatedReque
       const columns = csvHeaders.map((header, index) => {
         // Clean header name
         const cleanHeader = header.trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
-        
+
         // Analyze sample data to determine type
         let columnType: ColumnType = COLUMN_TYPES.TEXT;
-        
+
         for (const row of sampleRows) {
           const value = row[header];
           if (value && value.toString().trim() !== '') {
@@ -1429,8 +1429,8 @@ router.post('/upload-csv', upload.single('file'), async (req: AuthenticatedReque
               columnType = COLUMN_TYPES.CURRENCY;
             }
             // Check for date (be more strict about date detection)
-            if (!isNaN(Date.parse(value)) && 
-                (value.includes('/') || value.includes('-') || value.match(/\d{4}/))) {
+            if (!isNaN(Date.parse(value)) &&
+              (value.includes('/') || value.includes('-') || value.match(/\d{4}/))) {
               const parsedDate = new Date(value);
               if (parsedDate.getFullYear() > 1900 && parsedDate.getFullYear() < 2100) {
                 columnType = COLUMN_TYPES.DATE;
@@ -1466,9 +1466,9 @@ router.post('/upload-csv', upload.single('file'), async (req: AuthenticatedReque
       if (existingTable) {
         // Clean up uploaded file
         fs.unlinkSync(filePath);
-        return res.status(409).json({ 
-          success: false, 
-          error: `Table with name "${finalTableName}" already exists` 
+        return res.status(409).json({
+          success: false,
+          error: `Table with name "${finalTableName}" already exists`
         });
       }
 
@@ -1488,7 +1488,7 @@ router.post('/upload-csv', upload.single('file'), async (req: AuthenticatedReque
 
       // Create columns
       const createdColumns = await Promise.all(
-        columns.map((column, index) => 
+        columns.map((column, index) =>
           prisma.tableColumn.create({
             data: {
               tableId: table.id,
@@ -1510,10 +1510,10 @@ router.post('/upload-csv', upload.single('file'), async (req: AuthenticatedReque
       // Store job info in database or Redis for tracking
       // For now, we'll process the CSV directly since we don't have a CSV queue set up
       // In a production environment, you'd want to use a job queue for large files
-      
+
       // Process CSV rows in batches
       const rows: Record<string, any>[] = [];
-      
+
       // Re-read the entire file to get all data
       await new Promise<void>((resolve, reject) => {
         fs.createReadStream(filePath)
@@ -1532,13 +1532,13 @@ router.post('/upload-csv', upload.single('file'), async (req: AuthenticatedReque
       // Process rows in batches to avoid overwhelming the database
       const batchSize = 100;
       let processedCount = 0;
-      
+
       for (let i = 0; i < rows.length; i += batchSize) {
         const batch = rows.slice(i, i + batchSize);
-        
+
         const rowPromises = batch.map(async (csvRow, batchIndex) => {
           const rowOrder = processedCount + batchIndex + 1;
-          
+
           const tableRow = await prisma.tableRow.create({
             data: {
               tableId: table.id,
@@ -1591,25 +1591,25 @@ router.post('/upload-csv', upload.single('file'), async (req: AuthenticatedReque
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
-      
+
       console.error('Error processing CSV:', csvError);
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid CSV format or processing error' 
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid CSV format or processing error'
       });
     }
 
   } catch (error) {
     console.error('Error uploading CSV:', error);
-    
+
     // Clean up uploaded file in case of error
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
-    
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to upload CSV file' 
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to upload CSV file'
     });
   }
 });

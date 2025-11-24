@@ -228,6 +228,7 @@ model IncomingWebhook {
   userId         String
   tableId        String    @unique
   url            String    @unique
+  apiKey         String    @unique // API key for authenticating webhook requests
   isActive       Boolean   @default(true)
   fieldMapping   Json      @default("{}")
   receivedCount  Int       @default(0)
@@ -237,6 +238,7 @@ model IncomingWebhook {
   table          UserTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([apiKey])
   @@map("incoming_webhooks")
 }
 

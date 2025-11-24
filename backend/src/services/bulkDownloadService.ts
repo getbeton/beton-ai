@@ -1,10 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+
 import { Job } from 'bull';
 import { ApolloService, PeopleSearchFilters } from './apolloService';
 import { bulkDownloadQueue, BulkDownloadJobData } from '../queues/bulkDownloadQueue';
 import { BULK_DOWNLOAD_CONFIG, JobStatus } from '../config/bulkDownload';
 
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export interface BulkDownloadEstimate {
   totalRecords: number;
@@ -74,17 +74,17 @@ export class BulkDownloadService {
       const cleanFilters = { ...filters };
       delete cleanFilters.page;
       delete cleanFilters.per_page;
-      
+
       const firstPageFilters = { ...cleanFilters, page: 1, per_page: 100 };
       const firstPageResult = await ApolloService.searchPeople(apiKey, firstPageFilters);
-      
+
       const totalRecords = firstPageResult.pagination.total_entries;
       const totalPages = Math.ceil(totalRecords / 100);
-      
+
       // Estimate duration (assuming 1 second per page + API delays)
       const estimatedMinutes = Math.ceil(totalPages * (BULK_DOWNLOAD_CONFIG.APOLLO_API_DELAY_MS / 1000) / 60);
       const estimatedDuration = estimatedMinutes < 1 ? '< 1 minute' : `~${estimatedMinutes} minutes`;
-      
+
       return {
         totalRecords,
         totalPages,
@@ -196,7 +196,7 @@ export class BulkDownloadService {
 
       if (!job) return null;
 
-      const percentage = job.totalEstimated ? 
+      const percentage = job.totalEstimated ?
         Math.round((job.totalProcessed / job.totalEstimated) * 100) : 0;
 
       return {

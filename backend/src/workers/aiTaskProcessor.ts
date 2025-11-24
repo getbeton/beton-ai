@@ -1,10 +1,10 @@
 import { Job } from 'bull';
-import { PrismaClient } from '@prisma/client';
+
 import { AiTaskJobData, AiTaskService } from '../services/aiTaskService';
 import { AI_TASK_CONFIG } from '../queues/aiTaskQueue';
 import { WebSocketService } from '../services/websocketService';
 
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export class AiTaskProcessor {
   /**
@@ -12,14 +12,14 @@ export class AiTaskProcessor {
    */
   static async processAiTask(job: Job<AiTaskJobData>): Promise<void> {
     const { jobId, userId } = job.data;
-    
+
     console.log(`Starting AI task job ${jobId} for user ${userId}`);
 
     try {
       // Mark job as running
       await prisma.aiTaskJob.update({
         where: { id: jobId },
-        data: { 
+        data: {
           status: AI_TASK_CONFIG.JOB_STATUS.RUNNING,
           startedAt: new Date()
         }
@@ -27,7 +27,7 @@ export class AiTaskProcessor {
 
       // Get all pending executions for this job
       const executions = await prisma.aiTaskExecution.findMany({
-        where: { 
+        where: {
           jobId,
           status: AI_TASK_CONFIG.EXECUTION_STATUS.PENDING
         },
@@ -46,19 +46,19 @@ export class AiTaskProcessor {
 
       // Process executions in batches to avoid overwhelming the AI API
       await this.processExecutionsInBatches(
-        executions, 
-        jobId, 
-        userId, 
+        executions,
+        jobId,
+        userId,
         job
       );
 
     } catch (error: any) {
       console.error(`Error in AI task job ${jobId}:`, error);
-      
+
       // Mark job as failed
       await prisma.aiTaskJob.update({
         where: { id: jobId },
-        data: { 
+        data: {
           status: AI_TASK_CONFIG.JOB_STATUS.FAILED,
           completedAt: new Date()
         }
@@ -84,17 +84,17 @@ export class AiTaskProcessor {
     // Process executions in batches
     for (let i = 0; i < executions.length; i += batchSize) {
       const batch = executions.slice(i, i + batchSize);
-      
+
       console.log(`📦 Processing batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(executions.length / batchSize)} for job ${jobId}`);
-      
+
       try {
         // Process batch executions concurrently (but limited by batch size)
-        const batchPromises = batch.map(execution => 
+        const batchPromises = batch.map(execution =>
           this.processExecution(execution, jobId, userId)
         );
-        
+
         const batchResults = await Promise.allSettled(batchPromises);
-        
+
         // Count results
         batchResults.forEach(result => {
           if (result.status === 'fulfilled') {
@@ -108,7 +108,7 @@ export class AiTaskProcessor {
         // Update job progress
         await prisma.aiTaskJob.update({
           where: { id: jobId },
-          data: { 
+          data: {
             completedTasks: completedCount,
             failedTasks: failedCount
           }
@@ -139,7 +139,7 @@ export class AiTaskProcessor {
 
       } catch (batchError: any) {
         console.error(`❌ Error processing batch for job ${jobId}:`, batchError);
-        
+
         // Mark all executions in this batch as failed
         const batchExecutionIds = batch.map(exec => exec.id);
         await prisma.aiTaskExecution.updateMany({
@@ -155,11 +155,11 @@ export class AiTaskProcessor {
         });
 
         failedCount += batch.length;
-        
+
         // Update job failure count
         await prisma.aiTaskJob.update({
           where: { id: jobId },
-          data: { 
+          data: {
             failedTasks: failedCount
           }
         });
@@ -200,8 +200,8 @@ export class AiTaskProcessor {
       // Mark execution as running
       await prisma.aiTaskExecution.update({
         where: { id: execution.id },
-        data: { 
-          status: AI_TASK_CONFIG.EXECUTION_STATUS.RUNNING 
+        data: {
+          status: AI_TASK_CONFIG.EXECUTION_STATUS.RUNNING
         }
       });
 
@@ -228,7 +228,7 @@ export class AiTaskProcessor {
         // Update cell with result
         await prisma.tableCell.update({
           where: { id: execution.cellId },
-          data: { 
+          data: {
             value: result.result,
             updatedAt: new Date()
           }
@@ -273,7 +273,7 @@ export class AiTaskProcessor {
 
     } catch (error: any) {
       console.error(`❌ Error processing execution ${execution.id}:`, error);
-      
+
       // Mark execution as failed
       await prisma.aiTaskExecution.update({
         where: { id: execution.id },

@@ -19,6 +19,7 @@ import { authMiddleware } from './middleware/auth';
 import { WebSocketService } from './services/websocketService';
 import './queues/bulkDownloadQueue'; // Initialize the queue
 import './queues/aiTaskQueue'; // Initialize the AI task queue
+import prisma from './lib/prisma';
 
 dotenv.config();
 
@@ -58,13 +59,27 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('combined'));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    service: 'beton-ai-backend',
-    mode: 'development'
-  });
+app.get('/health', async (req, res) => {
+  try {
+    // Check database connectivity
+    await prisma.$queryRaw`SELECT 1`;
+
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      service: 'beton-ai-backend',
+      database: 'connected',
+      mode: process.env.NODE_ENV || 'development'
+    });
+  } catch (error: any) {
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      service: 'beton-ai-backend',
+      database: 'disconnected',
+      error: error.message
+    });
+  }
 });
 
 // API routes
@@ -90,19 +105,16 @@ app.get('/api/auth/test', authMiddleware, (req: any, res) => {
 // Test endpoint for integration creation (no auth required - for testing)
 app.post('/api/test/integration', async (req, res) => {
   try {
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-    
     const { serviceName, name, apiKey } = req.body;
     const testUserId = 'test-user-123'; // Mock user ID for testing
-    
+
     if (!serviceName || !name || !apiKey) {
       return res.status(400).json({
         success: false,
         error: 'serviceName, name, and apiKey are required'
       });
     }
-    
+
     const newIntegration = await prisma.integration.create({
       data: {
         userId: testUserId,
@@ -127,7 +139,7 @@ app.post('/api/test/integration', async (req, res) => {
         }
       }
     });
-    
+
     res.status(201).json({
       success: true,
       data: newIntegration,

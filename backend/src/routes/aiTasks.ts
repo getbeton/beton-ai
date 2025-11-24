@@ -1,14 +1,14 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
-import { 
-  AuthenticatedRequest, 
-  ApiResponse 
+
+import {
+  AuthenticatedRequest,
+  ApiResponse
 } from '../types';
 import { AiTaskService, CreateAiTaskJobRequest } from '../services/aiTaskService';
 import { aiTaskQueue } from '../queues/aiTaskQueue';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // Create a new AI task job
 router.post('/execute', async (req: AuthenticatedRequest, res) => {
@@ -22,9 +22,9 @@ router.post('/execute', async (req: AuthenticatedRequest, res) => {
 
     // Validate required fields
     if (!request.tableId || !request.columnId || !request.integrationId || !request.executionScope) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'tableId, columnId, integrationId, and executionScope are required' 
+      return res.status(400).json({
+        success: false,
+        error: 'tableId, columnId, integrationId, and executionScope are required'
       });
     }
 
@@ -60,9 +60,9 @@ router.post('/execute', async (req: AuthenticatedRequest, res) => {
     res.status(201).json(response);
   } catch (error: any) {
     console.error('Error creating AI task job:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to create AI task job' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create AI task job'
     });
   }
 });
@@ -87,9 +87,9 @@ router.get('/jobs/:jobId', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error: any) {
     console.error('Error fetching job status:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to fetch job status' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch job status'
     });
   }
 });
@@ -114,9 +114,9 @@ router.post('/jobs/:jobId/cancel', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error: any) {
     console.error('Error cancelling job:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to cancel job' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to cancel job'
     });
   }
 });
@@ -179,9 +179,9 @@ router.get('/jobs', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error: any) {
     console.error('Error fetching AI task jobs:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to fetch AI task jobs' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch AI task jobs'
     });
   }
 });
@@ -197,9 +197,9 @@ router.post('/validate-column', async (req: AuthenticatedRequest, res) => {
     const { settings } = req.body;
 
     if (!settings) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Column settings are required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Column settings are required'
       });
     }
 
@@ -216,9 +216,9 @@ router.post('/validate-column', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error: any) {
     console.error('Error validating AI task column:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to validate AI task column' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to validate AI task column'
     });
   }
 });
@@ -243,9 +243,9 @@ router.get('/tables/:tableId/variables', async (req: AuthenticatedRequest, res) 
     res.json(response);
   } catch (error: any) {
     console.error('Error fetching available variables:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to fetch available variables' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch available variables'
     });
   }
 });
@@ -267,9 +267,9 @@ router.get('/jobs/:jobId/executions', async (req: AuthenticatedRequest, res) => 
     });
 
     if (!job) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Job not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Job not found'
       });
     }
 
@@ -318,9 +318,9 @@ router.get('/jobs/:jobId/executions', async (req: AuthenticatedRequest, res) => 
     res.json(response);
   } catch (error: any) {
     console.error('Error fetching executions:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to fetch executions' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch executions'
     });
   }
 });

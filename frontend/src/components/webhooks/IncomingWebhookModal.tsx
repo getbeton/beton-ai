@@ -1,15 +1,16 @@
 /**
  * IncomingWebhookModal
  * 
- * Main modal for configuring incoming webhooks with field mapping,
- * testing, and management capabilities.
+ * Simplified single-flow modal for configuring incoming webhooks.
+ * Consolidates setup, testing, and field mapping into one screen.
+ * Shows success state with webhook URL and API key after creation.
  * 
  * Features:
- * - 3-tab interface (Setup, Test, Manage)
- * - Field mapping with dropdowns
- * - Live test with JSON preview
- * - Toggle webhook on/off
- * - View webhook statistics
+ * - Single-screen flow (no tabs for new webhooks)
+ * - Inline JSON testing and field extraction
+ * - Real-time field mapping validation
+ * - Success screen with copyable URL and API key
+ * - Separate manage mode for existing webhooks
  * 
  * @example
  * <IncomingWebhookModal
@@ -43,12 +44,12 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Copy, Check, AlertCircle, Loader2, Trash2, Pause, Play } from 'lucide-react';
+import { Copy, Check, AlertCircle, Loader2, Trash2, Pause, Play, Eye, EyeOff, CheckCircle2, Link as LinkIcon, Key } from 'lucide-react';
 import { FieldMappingBuilder } from './FieldMappingBuilder';
-import { WebhookTestPanel } from './WebhookTestPanel';
 import { IncomingWebhook, TableColumn, validateJSON } from './types';
 import { apiClient } from '@/lib/api';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface IncomingWebhookModalProps {
   open: boolean;
@@ -69,46 +70,47 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
   existingWebhook,
   onWebhookUpdated,
 }) => {
-  const [activeTab, setActiveTab] = useState('setup');
-  const [webhookUrl, setWebhookUrl] = useState('');
+  const router = useRouter();
+  
+  // UI state
+  const [mode, setMode] = useState<'setup' | 'success' | 'manage'>('setup');
   const [fieldMapping, setFieldMapping] = useState<Record<string, string>>({});
   const [sampleJson, setSampleJson] = useState('{\n  "email": "test@example.com",\n  "firstName": "John",\n  "lastName": "Doe"\n}');
   const [availableFields, setAvailableFields] = useState<string[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [copiedUrl, setCopiedUrl] = useState(false);
   const [webhook, setWebhook] = useState<IncomingWebhook | null>(null);
+  
+  // Success state
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedBoth, setCopiedBoth] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   // Initialize state when modal opens or webhook changes
   useEffect(() => {
     if (open) {
       if (existingWebhook) {
-        // Load existing webhook
+        // Load existing webhook - go to manage mode
         setWebhook(existingWebhook);
-        setWebhookUrl(existingWebhook.url);
         setFieldMapping(existingWebhook.fieldMapping || {});
         setIsActive(existingWebhook.isActive);
-        setActiveTab('manage');
+        setMode('manage');
         
         // Extract fields from existing mapping
         const fields = Object.keys(existingWebhook.fieldMapping || {});
         setAvailableFields(fields);
       } else {
-        // Generate new webhook URL
-        generateWebhookUrl();
-        setActiveTab('setup');
+        // New webhook - setup mode
+        setWebhook(null);
+        setMode('setup');
+        setFieldMapping({});
+        setAvailableFields([]);
+        setSampleJson('{\n  "email": "test@example.com",\n  "firstName": "John",\n  "lastName": "Doe"\n}');
       }
     }
   }, [open, existingWebhook]);
-
-  // Generate unique webhook URL
-  const generateWebhookUrl = () => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    const uniqueId = `${tableId}_${Date.now()}`;
-    const url = `${baseUrl}/api/webhooks/receive/${uniqueId}`;
-    setWebhookUrl(url);
-  };
 
   // Extract fields from sample JSON
   const extractFieldsFromJson = useCallback(() => {
@@ -130,36 +132,73 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
       setFieldMapping(prev => ({ ...prev, ...autoMapping }));
       
       toast.success(`Extracted ${fields.length} fields from sample JSON`);
+    } else {
+      toast.error(validation.error || 'Invalid JSON');
     }
   }, [sampleJson, tableColumns]);
 
+  // Validate mapping
+  const isValidMapping = useCallback(() => {
+    if (Object.keys(fieldMapping).length === 0) {
+      return false;
+    }
+    
+    // Check that all required columns are mapped
+    const requiredColumns = tableColumns.filter(col => col.isRequired);
+    const mappedColumnIds = Object.values(fieldMapping);
+    const unmappedRequired = requiredColumns.filter(col => !mappedColumnIds.includes(col.id));
+    
+    return unmappedRequired.length === 0;
+  }, [fieldMapping, tableColumns]);
+
   // Copy webhook URL to clipboard
   const copyWebhookUrl = async () => {
+    if (!webhook?.url) return;
+    
     try {
-      await navigator.clipboard.writeText(webhookUrl);
+      await navigator.clipboard.writeText(webhook.url);
       setCopiedUrl(true);
-      toast.success('Webhook URL copied to clipboard');
+      toast.success('Webhook URL copied');
       setTimeout(() => setCopiedUrl(false), 2000);
     } catch (error) {
       toast.error('Failed to copy URL');
     }
   };
 
+  // Copy API key to clipboard
+  const copyApiKey = async () => {
+    if (!webhook?.apiKey) return;
+    
+    try {
+      await navigator.clipboard.writeText(webhook.apiKey);
+      setCopiedKey(true);
+      toast.success('API key copied');
+      setTimeout(() => setCopiedKey(false), 2000);
+    } catch (error) {
+      toast.error('Failed to copy API key');
+    }
+  };
+
+  // Copy both URL and API key
+  const copyBoth = async () => {
+    if (!webhook?.url || !webhook?.apiKey) return;
+    
+    try {
+      const text = `Webhook URL: ${webhook.url}\nAPI Key: ${webhook.apiKey}`;
+      await navigator.clipboard.writeText(text);
+      setCopiedBoth(true);
+      toast.success('URL and API key copied');
+      setTimeout(() => setCopiedBoth(false), 2000);
+    } catch (error) {
+      toast.error('Failed to copy');
+    }
+  };
+
   // Save webhook configuration
   const handleSave = async () => {
     // Validate mapping
-    if (Object.keys(fieldMapping).length === 0) {
-      toast.error('Please configure at least one field mapping');
-      return;
-    }
-
-    // Check required columns
-    const requiredColumns = tableColumns.filter(col => col.isRequired);
-    const mappedColumnIds = Object.values(fieldMapping);
-    const unmappedRequired = requiredColumns.filter(col => !mappedColumnIds.includes(col.id));
-    
-    if (unmappedRequired.length > 0) {
-      toast.error(`Required columns must be mapped: ${unmappedRequired.map(c => c.name).join(', ')}`);
+    if (!isValidMapping()) {
+      toast.error('Please map all required fields');
       return;
     }
 
@@ -178,7 +217,6 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
           setWebhook(updatedWebhook);
           onWebhookUpdated(updatedWebhook);
           toast.success('Webhook updated successfully');
-          setActiveTab('manage');
         }
       } else {
         // Create new webhook
@@ -191,10 +229,10 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
         if (response.data.success) {
           const newWebhook = response.data.data;
           setWebhook(newWebhook);
-          setWebhookUrl(newWebhook.url);
           onWebhookUpdated(newWebhook);
-          toast.success('Webhook created successfully');
-          setActiveTab('manage');
+          toast.success('Webhook created successfully!');
+          // Show success screen
+          setMode('success');
         }
       }
     } catch (error: any) {
@@ -253,159 +291,277 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
     }
   };
 
-  // Test webhook with sample data
-  const handleTestWebhook = async (payload: any) => {
-    try {
-      // Simulate mapping the payload
-      const mappedData: Record<string, any> = {};
-      
-      Object.entries(fieldMapping).forEach(([sourceField, targetColumnId]) => {
-        if (payload[sourceField] !== undefined) {
-          const column = tableColumns.find(col => col.id === targetColumnId);
-          if (column) {
-            mappedData[column.name] = payload[sourceField];
-          }
-        }
-      });
-
-      // Check if all required columns are mapped
-      const requiredColumns = tableColumns.filter(col => col.isRequired);
-      const missingColumns = requiredColumns.filter(
-        col => !Object.keys(mappedData).includes(col.name)
-      );
-
-      if (missingColumns.length > 0) {
-        return {
-          success: false,
-          message: 'Missing required fields',
-          error: `The following required columns were not provided: ${missingColumns.map(c => c.name).join(', ')}`,
-        };
-      }
-
-      return {
-        success: true,
-        message: 'Test successful! Here\'s how your data would be mapped:',
-        data: mappedData,
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        message: 'Test failed',
-        error: error.message || 'An unexpected error occurred',
-      };
-    }
+  // Go to table after webhook creation
+  const handleGoToTable = () => {
+    onClose();
+    router.push(`/dashboard/tables/${tableId}`);
   };
+
+  // Get required fields that are not mapped
+  const unmappedRequiredFields = tableColumns
+    .filter(col => col.isRequired)
+    .filter(col => !Object.values(fieldMapping).includes(col.id))
+    .map(col => col.name);
+
+  // Mask API key for display
+  const maskedApiKey = webhook?.apiKey 
+    ? `${webhook.apiKey.slice(0, 8)}${'*'.repeat(24)}`
+    : '';
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            Incoming Webhook
-            {webhook && (
-              <Badge
-                variant={webhook.isActive ? 'default' : 'secondary'}
-                className={webhook.isActive ? 'ml-2 bg-green-100 text-green-800' : 'ml-2'}
-              >
-                {webhook.isActive ? 'Active' : 'Paused'}
-              </Badge>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            Receive data from external services and automatically create rows in {tableName}
-          </DialogDescription>
-        </DialogHeader>
+        {/* ========== SETUP MODE (New Webhook) ========== */}
+        {mode === 'setup' && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Configure Incoming Webhook</DialogTitle>
+              <DialogDescription>
+                Test with sample data and map fields to create your webhook for {tableName}
+              </DialogDescription>
+            </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="setup">Setup</TabsTrigger>
-            <TabsTrigger value="test">Test</TabsTrigger>
-            <TabsTrigger value="manage" disabled={!webhook}>Manage</TabsTrigger>
-          </TabsList>
-
-          {/* SETUP TAB */}
-          <TabsContent value="setup" className="space-y-4">
-            {/* Webhook URL */}
-            <div className="space-y-2">
-              <Label>Webhook URL</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={webhookUrl}
-                  readOnly
-                  className="font-mono text-sm"
+            <div className="space-y-6">
+              {/* Step 1: Sample JSON Input */}
+              <div className="space-y-3">
+                <Label htmlFor="sample-json" className="text-base font-semibold">
+                  Step 1: Test with Sample Data
+                </Label>
+                <Textarea
+                  id="sample-json"
+                  value={sampleJson}
+                  onChange={(e) => setSampleJson(e.target.value)}
+                  placeholder='{\n  "email": "test@example.com",\n  "name": "John Doe"\n}'
+                  className="font-mono text-sm min-h-[150px]"
                 />
                 <Button
                   variant="outline"
-                  size="icon"
-                  onClick={copyWebhookUrl}
+                  onClick={extractFieldsFromJson}
+                  className="w-full"
                 >
-                  {copiedUrl ? (
-                    <Check className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
+                  Extract & Test Fields
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Send POST requests to this URL to create rows automatically
-              </p>
+
+              {/* Step 2: Field Mapping */}
+              {availableFields.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold">
+                      Step 2: Map Fields to Table Columns
+                    </Label>
+                    <FieldMappingBuilder
+                      availableFields={availableFields}
+                      tableColumns={tableColumns}
+                      mapping={fieldMapping}
+                      onChange={setFieldMapping}
+                    />
+                    
+                    {/* Required fields warning */}
+                    {unmappedRequiredFields.length > 0 && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Required fields must be mapped: {unmappedRequiredFields.join(', ')}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Info about webhook URL */}
+              {availableFields.length > 0 && (
+                <>
+                  <Separator />
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Your webhook URL and API key will be generated after you create the webhook.
+                      Make sure to copy them securely - the API key won't be shown again.
+                    </AlertDescription>
+                  </Alert>
+                </>
+              )}
             </div>
 
-            <Separator />
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSave} 
+                disabled={isSaving || !isValidMapping()}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Webhook'
+                )}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
 
-            {/* Sample JSON Input */}
-            <div className="space-y-2">
-              <Label htmlFor="sample-json">Sample JSON Payload</Label>
-              <Textarea
-                id="sample-json"
-                value={sampleJson}
-                onChange={(e) => setSampleJson(e.target.value)}
-                placeholder='{\n  "email": "test@example.com",\n  "name": "John Doe"\n}'
-                className="font-mono text-sm min-h-[150px]"
-              />
+        {/* ========== SUCCESS MODE (Just Created) ========== */}
+        {mode === 'success' && webhook && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-green-600">
+                <CheckCircle2 className="h-5 w-5" />
+                Webhook Created Successfully!
+              </DialogTitle>
+              <DialogDescription>
+                Copy your webhook URL and API key. The API key won't be shown again.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Webhook URL */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                  Webhook URL
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    value={webhook.url}
+                    readOnly
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyWebhookUrl}
+                  >
+                    {copiedUrl ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* API Key */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Key className="h-4 w-4 text-muted-foreground" />
+                  API Key (required for authentication)
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    value={showApiKey ? webhook.apiKey : maskedApiKey}
+                    readOnly
+                    type={showApiKey ? 'text' : 'password'}
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                  >
+                    {showApiKey ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={copyApiKey}
+                  >
+                    {copiedKey ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Warning */}
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Save your API key securely.</strong> It won't be shown again for security reasons.
+                  You can always find the webhook URL on your table page.
+                </AlertDescription>
+              </Alert>
+            </div>
+
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
-                size="sm"
-                onClick={extractFieldsFromJson}
+                onClick={copyBoth}
+                className="w-full sm:w-auto"
               >
-                Extract Fields
+                {copiedBoth ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2 text-green-600" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Both
+                  </>
+                )}
               </Button>
-            </div>
+              <Button
+                variant="outline"
+                onClick={handleGoToTable}
+                className="w-full sm:w-auto"
+              >
+                Go to Table
+              </Button>
+              <Button
+                onClick={onClose}
+                className="w-full sm:w-auto"
+              >
+                Close
+              </Button>
+            </DialogFooter>
+          </>
+        )}
 
-            <Separator />
+        {/* ========== MANAGE MODE (Existing Webhook) ========== */}
+        {mode === 'manage' && webhook && (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                Manage Incoming Webhook
+                <Badge
+                  variant={webhook.isActive ? 'default' : 'secondary'}
+                  className={webhook.isActive ? 'ml-2 bg-green-100 text-green-800' : 'ml-2'}
+                >
+                  {webhook.isActive ? 'Active' : 'Paused'}
+                </Badge>
+              </DialogTitle>
+              <DialogDescription>
+                Configure your webhook for {tableName}
+              </DialogDescription>
+            </DialogHeader>
 
-            {/* Field Mapping */}
-            <div className="space-y-2">
-              <Label>Field Mapping</Label>
-              <FieldMappingBuilder
-                availableFields={availableFields}
-                tableColumns={tableColumns}
-                mapping={fieldMapping}
-                onChange={setFieldMapping}
-              />
-            </div>
-          </TabsContent>
+            <Tabs defaultValue="configuration" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="configuration">Configuration</TabsTrigger>
+                <TabsTrigger value="stats">Statistics</TabsTrigger>
+                <TabsTrigger value="settings">Settings</TabsTrigger>
+              </TabsList>
 
-          {/* TEST TAB */}
-          <TabsContent value="test" className="space-y-4">
-            <WebhookTestPanel
-              type="incoming"
-              onTest={handleTestWebhook}
-              showPayloadInput={true}
-              defaultPayload={sampleJson}
-            />
-          </TabsContent>
-
-          {/* MANAGE TAB */}
-          <TabsContent value="manage" className="space-y-4">
-            {webhook && (
-              <>
-                {/* Webhook URL */}
+              {/* Configuration Tab */}
+              <TabsContent value="configuration" className="space-y-4">
                 <div className="space-y-2">
                   <Label>Webhook URL</Label>
                   <div className="flex gap-2">
                     <Input
-                      value={webhookUrl}
+                      value={webhook.url}
                       readOnly
                       className="font-mono text-sm"
                     />
@@ -425,7 +581,34 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
 
                 <Separator />
 
-                {/* Statistics */}
+                <div className="space-y-2">
+                  <Label>Field Mapping</Label>
+                  <FieldMappingBuilder
+                    availableFields={availableFields}
+                    tableColumns={tableColumns}
+                    mapping={fieldMapping}
+                    onChange={setFieldMapping}
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleSave} 
+                  disabled={isSaving || !isValidMapping()}
+                  className="w-full"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    'Update Webhook'
+                  )}
+                </Button>
+              </TabsContent>
+
+              {/* Statistics Tab */}
+              <TabsContent value="stats" className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <Card>
                     <CardHeader>
@@ -449,89 +632,68 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
                     </CardContent>
                   </Card>
                 </div>
+              </TabsContent>
+
+              {/* Settings Tab */}
+              <TabsContent value="settings" className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Webhook Status</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isActive ? 'Webhook is active and receiving data' : 'Webhook is paused'}
+                    </p>
+                  </div>
+                  <Button
+                    variant={isActive ? 'outline' : 'default'}
+                    onClick={handleToggleActive}
+                  >
+                    {isActive ? (
+                      <>
+                        <Pause className="h-4 w-4 mr-2" />
+                        Pause
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-4 w-4 mr-2" />
+                        Activate
+                      </>
+                    )}
+                  </Button>
+                </div>
 
                 <Separator />
 
-                {/* Actions */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Webhook Status</p>
-                      <p className="text-xs text-muted-foreground">
-                        {isActive ? 'Webhook is active and receiving data' : 'Webhook is paused'}
-                      </p>
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="flex items-center justify-between">
+                      <span>Delete this webhook permanently</span>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <Button
-                      variant={isActive ? 'outline' : 'default'}
-                      onClick={handleToggleActive}
-                    >
-                      {isActive ? (
-                        <>
-                          <Pause className="h-4 w-4 mr-2" />
-                          Pause
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-4 w-4 mr-2" />
-                          Activate
-                        </>
-                      )}
-                    </Button>
-                  </div>
-
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      <div className="flex items-center justify-between">
-                        <span>Delete this webhook permanently</span>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={handleDelete}
-                          disabled={isDeleting}
-                        >
-                          {isDeleting ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Deleting...
-                            </>
-                          ) : (
-                            <>
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
-
-        {/* Footer Actions */}
-        {activeTab === 'setup' && (
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                webhook ? 'Update Webhook' : 'Create Webhook'
-              )}
-            </Button>
-          </DialogFooter>
+                  </AlertDescription>
+                </Alert>
+              </TabsContent>
+            </Tabs>
+          </>
         )}
       </DialogContent>
     </Dialog>
   );
 };
-
-

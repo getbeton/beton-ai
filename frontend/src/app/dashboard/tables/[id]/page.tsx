@@ -11,6 +11,8 @@ import { useAiTaskCells } from '@/hooks/useAiTaskCells';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { IncomingWebhookButton } from '@/components/webhooks/IncomingWebhookButton';
 import { OutboundWebhookButton } from '@/components/webhooks/OutboundWebhookButton';
+import { WebhookInfoCard } from '@/components/webhooks/WebhookInfoCard';
+import type { IncomingWebhook } from '@/components/webhooks/types';
 import { 
   Plus,
   Table as TableIcon,
@@ -195,6 +197,10 @@ export default function TableViewPage() {
   const [executionJobId, setExecutionJobId] = useState<string | null>(null);
   const [autoOpenIncomingWebhook, setAutoOpenIncomingWebhook] = useState(false);
   
+  // Incoming webhook state
+  const [incomingWebhook, setIncomingWebhook] = useState<IncomingWebhook | null>(null);
+  const [loadingWebhook, setLoadingWebhook] = useState(false);
+  
   // AI Task cells hook for real-time updates
   const aiTaskCells = useAiTaskCells({
     userId: user?.id,
@@ -302,6 +308,31 @@ export default function TableViewPage() {
       router.replace(newUrl);
     }
   }, [searchParams, table, tableId, router]);
+
+  // Fetch incoming webhook configuration
+  useEffect(() => {
+    const fetchIncomingWebhook = async () => {
+      if (!tableId) return;
+      
+      try {
+        setLoadingWebhook(true);
+        const response = await apiClient.webhooks.getIncoming(tableId);
+        if (response.data.success && response.data.data) {
+          setIncomingWebhook(response.data.data);
+        } else {
+          setIncomingWebhook(null);
+        }
+      } catch (error: any) {
+        // Webhook doesn't exist yet, that's ok
+        console.log('[TableViewPage] No incoming webhook found:', error);
+        setIncomingWebhook(null);
+      } finally {
+        setLoadingWebhook(false);
+      }
+    };
+
+    fetchIncomingWebhook();
+  }, [tableId]);
 
   // Note: Integrations and variables are now preloaded on page load
   // instead of when dialogs open to prevent empty modal states
@@ -1125,6 +1156,18 @@ export default function TableViewPage() {
         columns={table.columns || []}
         onExportCSV={handleExportCSV}
         autoOpenIncomingWebhook={autoOpenIncomingWebhook}
+        onIncomingWebhookUpdated={setIncomingWebhook}
+      />
+
+      {/* Webhook Info Card - Shows incoming webhook URL and API key */}
+      <WebhookInfoCard
+        webhook={incomingWebhook}
+        loading={loadingWebhook}
+        onSetupClick={() => {
+          // Open incoming webhook modal when setup button is clicked
+          // This will be handled by triggering the IncomingWebhookButton
+          setAutoOpenIncomingWebhook(true);
+        }}
       />
 
       <div className="space-y-4">

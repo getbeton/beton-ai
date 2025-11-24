@@ -1,8 +1,8 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
-import { 
-  AuthenticatedRequest, 
-  ApiResponse, 
+
+import {
+  AuthenticatedRequest,
+  ApiResponse,
   CreateIntegrationRequest,
   UpdateIntegrationRequest,
   CreateApiKeyRequest,
@@ -47,7 +47,7 @@ import { ServiceFactory } from '../services/serviceFactory';
 import { FindymailService } from '../services/findymailService';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // Get all integrations for the authenticated user
 router.get('/', async (req: AuthenticatedRequest, res) => {
@@ -83,9 +83,9 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error fetching integrations:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch integrations' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch integrations'
     });
   }
 });
@@ -101,9 +101,9 @@ router.get('/platform-keys/:serviceName', async (req: AuthenticatedRequest, res)
     const { serviceName } = req.params;
 
     const platformKeys = await prisma.platformApiKey.findMany({
-      where: { 
+      where: {
         serviceName,
-        isActive: true 
+        isActive: true
       },
       select: {
         id: true,
@@ -125,9 +125,9 @@ router.get('/platform-keys/:serviceName', async (req: AuthenticatedRequest, res)
     res.json(response);
   } catch (error) {
     console.error('Error fetching platform keys:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch platform keys' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch platform keys'
     });
   }
 });
@@ -143,9 +143,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
     }
 
     const integration = await prisma.integration.findFirst({
-      where: { 
+      where: {
         id: integrationId,
-        userId 
+        userId
       },
       include: {
         apiKeys: {
@@ -162,9 +162,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!integration) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Integration not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Integration not found'
       });
     }
 
@@ -176,9 +176,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error fetching integration:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch integration' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch integration'
     });
   }
 });
@@ -195,41 +195,41 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 
     // Validate required fields
     if (!serviceName || !name || !keySource) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'serviceName, name, and keySource are required' 
+      return res.status(400).json({
+        success: false,
+        error: 'serviceName, name, and keySource are required'
       });
     }
 
     // Validate based on key source
     if (keySource === 'platform') {
       if (!platformKeyId) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'platformKeyId is required when using platform keys' 
+        return res.status(400).json({
+          success: false,
+          error: 'platformKeyId is required when using platform keys'
         });
       }
 
       // Verify platform key exists and is active
       const platformKey = await prisma.platformApiKey.findFirst({
-        where: { 
+        where: {
           id: platformKeyId,
           serviceName,
-          isActive: true 
+          isActive: true
         }
       });
 
       if (!platformKey) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Invalid or inactive platform key' 
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid or inactive platform key'
         });
       }
     } else if (keySource === 'personal') {
       if (!apiKeys || apiKeys.length === 0) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'apiKeys are required when using personal keys' 
+        return res.status(400).json({
+          success: false,
+          error: 'apiKeys are required when using personal keys'
         });
       }
 
@@ -238,10 +238,10 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
         for (const apiKey of apiKeys) {
           console.log(`Validating ${serviceName} API key...`);
           const validationResult = await ServiceFactory.validateApiKey(serviceName, apiKey.apiKey);
-          
+
           if (!validationResult.isHealthy) {
-            return res.status(400).json({ 
-              success: false, 
+            return res.status(400).json({
+              success: false,
               error: `API key validation failed: ${validationResult.message}`,
               details: {
                 service: serviceName,
@@ -311,7 +311,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     if (service?.supportsValidation) {
       try {
         let apiKeyToTest = '';
-        
+
         if (keySource === 'platform' && platformKeyId) {
           // Get the actual platform key for health check (backend only)
           const fullPlatformKey = await prisma.platformApiKey.findUnique({
@@ -324,7 +324,7 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 
         if (apiKeyToTest) {
           const healthCheck = await ServiceFactory.validateApiKey(serviceName, apiKeyToTest);
-            
+
           await prisma.integration.update({
             where: { id: integration.id },
             data: {
@@ -349,9 +349,9 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     res.status(201).json(response);
   } catch (error) {
     console.error('Error creating integration:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to create integration' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create integration'
     });
   }
 });
@@ -370,33 +370,33 @@ router.put('/:id', async (req: AuthenticatedRequest, res) => {
 
     // Check if integration exists and belongs to user
     const existingIntegration = await prisma.integration.findFirst({
-      where: { 
+      where: {
         id: integrationId,
-        userId 
+        userId
       }
     });
 
     if (!existingIntegration) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Integration not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Integration not found'
       });
     }
 
     // If changing to platform key, validate platform key
     if (keySource === 'platform' && platformKeyId) {
       const platformKey = await prisma.platformApiKey.findFirst({
-        where: { 
+        where: {
           id: platformKeyId,
           serviceName: existingIntegration.serviceName,
-          isActive: true 
+          isActive: true
         }
       });
 
       if (!platformKey) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Invalid or inactive platform key' 
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid or inactive platform key'
         });
       }
     }
@@ -447,9 +447,9 @@ router.put('/:id', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error updating integration:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to update integration' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update integration'
     });
   }
 });
@@ -466,16 +466,16 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
 
     // Check if integration exists and belongs to user
     const existingIntegration = await prisma.integration.findFirst({
-      where: { 
+      where: {
         id: integrationId,
-        userId 
+        userId
       }
     });
 
     if (!existingIntegration) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Integration not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Integration not found'
       });
     }
 
@@ -499,9 +499,9 @@ router.delete('/:id', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error deleting integration:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to delete integration' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete integration'
     });
   }
 });
@@ -517,17 +517,17 @@ router.post('/validate-key', async (req: AuthenticatedRequest, res) => {
     const { serviceName, apiKey } = req.body;
 
     if (!serviceName || !apiKey) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'serviceName and apiKey are required' 
+      return res.status(400).json({
+        success: false,
+        error: 'serviceName and apiKey are required'
       });
     }
 
     // Check if service supports validation
     if (!ServiceFactory.supportsValidation(serviceName)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Service ${serviceName} does not support API key validation` 
+      return res.status(400).json({
+        success: false,
+        error: `Service ${serviceName} does not support API key validation`
       });
     }
 
@@ -543,9 +543,9 @@ router.post('/validate-key', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error validating API key:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to validate API key' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to validate API key'
     });
   }
 });
@@ -561,9 +561,9 @@ router.post('/:id/health-check', async (req: AuthenticatedRequest, res) => {
     }
 
     const integration = await prisma.integration.findFirst({
-      where: { 
+      where: {
         id: integrationId,
-        userId 
+        userId
       },
       include: {
         apiKeys: {
@@ -575,9 +575,9 @@ router.post('/:id/health-check', async (req: AuthenticatedRequest, res) => {
     });
 
     if (!integration) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Integration not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Integration not found'
       });
     }
 
@@ -590,14 +590,14 @@ router.post('/:id/health-check', async (req: AuthenticatedRequest, res) => {
     }
 
     if (!apiKeyToTest) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No API key available for health check' 
+      return res.status(400).json({
+        success: false,
+        error: 'No API key available for health check'
       });
     }
 
     let healthCheck;
-    
+
     // Perform service-specific health check
     switch (integration.serviceName) {
       case 'apollo':
@@ -610,9 +610,9 @@ router.post('/:id/health-check', async (req: AuthenticatedRequest, res) => {
         healthCheck = await FindymailService.checkHealth(apiKeyToTest);
         break;
       default:
-        return res.status(400).json({ 
-          success: false, 
-          error: `Health check not supported for service: ${integration.serviceName}` 
+        return res.status(400).json({
+          success: false,
+          error: `Health check not supported for service: ${integration.serviceName}`
         });
     }
 
@@ -634,9 +634,9 @@ router.post('/:id/health-check', async (req: AuthenticatedRequest, res) => {
     res.json(response);
   } catch (error) {
     console.error('Error performing health check:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to perform health check' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to perform health check'
     });
   }
 });
@@ -653,7 +653,7 @@ router.post('/:id/apollo/people-search', async (req: AuthenticatedRequest, res) 
 
     // Get the integration and verify it belongs to the user
     const integration = await prisma.integration.findFirst({
-      where: { 
+      where: {
         id: integrationId,
         userId,
         serviceName: 'apollo',
@@ -666,15 +666,15 @@ router.post('/:id/apollo/people-search', async (req: AuthenticatedRequest, res) 
     });
 
     if (!integration) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Apollo integration not found or inactive' 
+      return res.status(404).json({
+        success: false,
+        error: 'Apollo integration not found or inactive'
       });
     }
 
     // Get the API key to use
     let apiKeyToUse = '';
-    
+
     if (integration.keySource === 'platform' && integration.platformKey) {
       // Get the actual platform key (backend only)
       const fullPlatformKey = await prisma.platformApiKey.findUnique({
@@ -684,18 +684,18 @@ router.post('/:id/apollo/people-search', async (req: AuthenticatedRequest, res) 
     } else if (integration.keySource === 'personal' && integration.apiKeys && integration.apiKeys.length > 0) {
       // Get the personal API key
       const personalKey = await prisma.apiKey.findFirst({
-        where: { 
+        where: {
           integrationId: integration.id,
-          isActive: true 
+          isActive: true
         }
       });
       apiKeyToUse = personalKey?.apiKey || '';
     }
 
     if (!apiKeyToUse) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No valid API key found for this integration' 
+      return res.status(400).json({
+        success: false,
+        error: 'No valid API key found for this integration'
       });
     }
 
@@ -728,9 +728,9 @@ router.post('/:id/apollo/people-search', async (req: AuthenticatedRequest, res) 
     res.json(response);
   } catch (error: any) {
     console.error('Error performing Apollo People Search:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to perform people search' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to perform people search'
     });
   }
 });
@@ -747,7 +747,7 @@ router.post('/:id/openai/text-generation', async (req: AuthenticatedRequest, res
 
     // Get the integration and verify it belongs to the user
     const integration = await prisma.integration.findFirst({
-      where: { 
+      where: {
         id: integrationId,
         userId,
         serviceName: 'openai',
@@ -760,15 +760,15 @@ router.post('/:id/openai/text-generation', async (req: AuthenticatedRequest, res
     });
 
     if (!integration) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'OpenAI integration not found or inactive' 
+      return res.status(404).json({
+        success: false,
+        error: 'OpenAI integration not found or inactive'
       });
     }
 
     // Get the API key to use
     let apiKeyToUse = '';
-    
+
     if (integration.keySource === 'platform' && integration.platformKey) {
       // Get the actual platform key (backend only)
       const fullPlatformKey = await prisma.platformApiKey.findUnique({
@@ -778,18 +778,18 @@ router.post('/:id/openai/text-generation', async (req: AuthenticatedRequest, res
     } else if (integration.keySource === 'personal' && integration.apiKeys && integration.apiKeys.length > 0) {
       // Get the personal API key
       const personalKey = await prisma.apiKey.findFirst({
-        where: { 
+        where: {
           integrationId: integration.id,
-          isActive: true 
+          isActive: true
         }
       });
       apiKeyToUse = personalKey?.apiKey || '';
     }
 
     if (!apiKeyToUse) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No valid API key found for this integration' 
+      return res.status(400).json({
+        success: false,
+        error: 'No valid API key found for this integration'
       });
     }
 
@@ -822,9 +822,9 @@ router.post('/:id/openai/text-generation', async (req: AuthenticatedRequest, res
     res.json(response);
   } catch (error: any) {
     console.error('Error generating text:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to generate text' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate text'
     });
   }
 });
@@ -841,7 +841,7 @@ router.post('/:id/leadmagic/find-email', async (req: AuthenticatedRequest, res) 
 
     // Get the integration and verify it belongs to the user
     const integration = await prisma.integration.findFirst({
-      where: { 
+      where: {
         id: integrationId,
         userId,
         serviceName: 'leadmagic',
@@ -854,15 +854,15 @@ router.post('/:id/leadmagic/find-email', async (req: AuthenticatedRequest, res) 
     });
 
     if (!integration) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'LeadMagic integration not found or inactive' 
+      return res.status(404).json({
+        success: false,
+        error: 'LeadMagic integration not found or inactive'
       });
     }
 
     // Get the API key to use
     let apiKeyToUse = '';
-    
+
     if (integration.keySource === 'platform' && integration.platformKey) {
       // Get the actual platform key (backend only)
       const fullPlatformKey = await prisma.platformApiKey.findUnique({
@@ -872,18 +872,18 @@ router.post('/:id/leadmagic/find-email', async (req: AuthenticatedRequest, res) 
     } else if (integration.keySource === 'personal' && integration.apiKeys && integration.apiKeys.length > 0) {
       // Get the personal API key
       const personalKey = await prisma.apiKey.findFirst({
-        where: { 
+        where: {
           integrationId: integration.id,
-          isActive: true 
+          isActive: true
         }
       });
       apiKeyToUse = personalKey?.apiKey || '';
     }
 
     if (!apiKeyToUse) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No valid API key found for this integration' 
+      return res.status(400).json({
+        success: false,
+        error: 'No valid API key found for this integration'
       });
     }
 
@@ -892,16 +892,16 @@ router.post('/:id/leadmagic/find-email', async (req: AuthenticatedRequest, res) 
 
     // Use the LeadMagic service to find the email
     const result = await ServiceFactory.executeAction('leadmagic', apiKeyToUse, 'findEmail', request);
-    
+
     res.json({
       success: true,
       data: result
     });
   } catch (error: any) {
     console.error('Error finding email:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to find email' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to find email'
     });
   }
 });
@@ -918,14 +918,14 @@ router.post('/:id/findymail/find-email', async (req: AuthenticatedRequest, res) 
     const { name, domain } = req.body;
 
     if (!name || !domain) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Name and domain are required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Name and domain are required'
       });
     }
 
     const integration = await prisma.integration.findFirst({
-      where: { 
+      where: {
         id,
         userId,
         serviceName: 'findymail'
@@ -936,9 +936,9 @@ router.post('/:id/findymail/find-email', async (req: AuthenticatedRequest, res) 
     });
 
     if (!integration || !integration.apiKeys?.[0]?.apiKey) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Integration or API key not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Integration or API key not found'
       });
     }
 
@@ -948,9 +948,9 @@ router.post('/:id/findymail/find-email', async (req: AuthenticatedRequest, res) 
     });
 
     if (!result.success) {
-      return res.status(400).json({ 
-        success: false, 
-        error: result.error 
+      return res.status(400).json({
+        success: false,
+        error: result.error
       });
     }
 
@@ -960,9 +960,9 @@ router.post('/:id/findymail/find-email', async (req: AuthenticatedRequest, res) 
     });
   } catch (error: any) {
     console.error('Error in findymail find-email:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Internal server error' 
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error'
     });
   }
 });

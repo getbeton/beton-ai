@@ -31,6 +31,7 @@ interface IncomingWebhookButtonProps {
   tableName: string;
   columns: TableColumn[];
   autoOpen?: boolean;
+  onWebhookUpdated?: (webhook: IncomingWebhook | null) => void;
 }
 
 export const IncomingWebhookButton: React.FC<IncomingWebhookButtonProps> = ({
@@ -38,6 +39,7 @@ export const IncomingWebhookButton: React.FC<IncomingWebhookButtonProps> = ({
   tableName,
   columns,
   autoOpen = false,
+  onWebhookUpdated,
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [webhook, setWebhook] = useState<IncomingWebhook | null>(null);
@@ -80,6 +82,10 @@ export const IncomingWebhookButton: React.FC<IncomingWebhookButtonProps> = ({
 
   const handleWebhookUpdated = (updatedWebhook: IncomingWebhook | null) => {
     setWebhook(updatedWebhook);
+    // Notify parent component of webhook updates
+    if (onWebhookUpdated) {
+      onWebhookUpdated(updatedWebhook);
+    }
   };
 
   return (

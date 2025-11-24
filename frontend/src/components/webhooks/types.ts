@@ -15,6 +15,7 @@ export interface IncomingWebhook {
   userId: string;
   tableId: string;
   url: string;
+  apiKey: string; // API key for authenticating webhook requests
   isActive: boolean;
   fieldMapping: Record<string, string>; // { jsonField: columnId }
   createdAt: string;
