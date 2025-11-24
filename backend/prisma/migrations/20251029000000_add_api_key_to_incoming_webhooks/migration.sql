@@ -2,6 +2,9 @@
 -- This field is required for authenticating incoming webhook requests
 -- Each webhook gets a unique API key that must be sent in the request headers
 
+-- Enable pgcrypto for gen_random_bytes
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- Add the apiKey column (nullable first to allow existing rows)
 ALTER TABLE "incoming_webhooks" ADD COLUMN "apiKey" TEXT;
 
