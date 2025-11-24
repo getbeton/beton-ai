@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 
 # Base stage with common dependencies
-FROM node:18.19-alpine3.19 AS base
+FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat curl dumb-init
 WORKDIR /app
 
@@ -11,7 +11,8 @@ FROM base AS deps
 COPY package*.json ./
 # Install dependencies (Railway-compatible)
 RUN npm ci --only=production --no-optional && \
-    npm ci --only=dev
+    npm ci --only=dev && \
+    npm install sharp
 
 # Build stage with optimizations
 FROM base AS builder
@@ -90,4 +91,4 @@ ENV HOSTNAME="0.0.0.0"
 
 # Use dumb-init for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "server.js"] 
+CMD ["sh", "-c", "echo 'Listing /app:' && ls -la /app && echo 'Starting server...' && node server.js"] 
