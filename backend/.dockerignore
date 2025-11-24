@@ -46,7 +46,7 @@ coverage/
 .gitignore
 
 # Docker
-Dockerfile*
+
 .dockerignore
 
 # Config files (except apollo.json)

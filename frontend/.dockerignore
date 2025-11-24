@@ -55,7 +55,7 @@ next-env.d.ts
 .gitignore
 
 # Docker
-Dockerfile*
+
 .dockerignore
 
 # Development files
