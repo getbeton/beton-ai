@@ -71,7 +71,7 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
   onWebhookUpdated,
 }) => {
   const router = useRouter();
-  
+
   // UI state
   const [mode, setMode] = useState<'setup' | 'success' | 'manage'>('setup');
   const [fieldMapping, setFieldMapping] = useState<Record<string, string>>({});
@@ -81,7 +81,7 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [webhook, setWebhook] = useState<IncomingWebhook | null>(null);
-  
+
   // Success state
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
@@ -97,7 +97,7 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
         setFieldMapping(existingWebhook.fieldMapping || {});
         setIsActive(existingWebhook.isActive);
         setMode('manage');
-        
+
         // Extract fields from existing mapping
         const fields = Object.keys(existingWebhook.fieldMapping || {});
         setAvailableFields(fields);
@@ -118,7 +118,7 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
     if (validation.valid && validation.parsed) {
       const fields = Object.keys(validation.parsed);
       setAvailableFields(fields);
-      
+
       // Auto-map fields with matching column names
       const autoMapping: Record<string, string> = {};
       fields.forEach(field => {
@@ -130,7 +130,7 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
         }
       });
       setFieldMapping(prev => ({ ...prev, ...autoMapping }));
-      
+
       toast.success(`Extracted ${fields.length} fields from sample JSON`);
     } else {
       toast.error(validation.error || 'Invalid JSON');
@@ -142,19 +142,19 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
     if (Object.keys(fieldMapping).length === 0) {
       return false;
     }
-    
+
     // Check that all required columns are mapped
     const requiredColumns = tableColumns.filter(col => col.isRequired);
     const mappedColumnIds = Object.values(fieldMapping);
     const unmappedRequired = requiredColumns.filter(col => !mappedColumnIds.includes(col.id));
-    
+
     return unmappedRequired.length === 0;
   }, [fieldMapping, tableColumns]);
 
   // Copy webhook URL to clipboard
   const copyWebhookUrl = async () => {
     if (!webhook?.url) return;
-    
+
     try {
       await navigator.clipboard.writeText(webhook.url);
       setCopiedUrl(true);
@@ -168,7 +168,7 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
   // Copy API key to clipboard
   const copyApiKey = async () => {
     if (!webhook?.apiKey) return;
-    
+
     try {
       await navigator.clipboard.writeText(webhook.apiKey);
       setCopiedKey(true);
@@ -182,7 +182,7 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
   // Copy both URL and API key
   const copyBoth = async () => {
     if (!webhook?.url || !webhook?.apiKey) return;
-    
+
     try {
       const text = `Webhook URL: ${webhook.url}\nAPI Key: ${webhook.apiKey}`;
       await navigator.clipboard.writeText(text);
@@ -196,14 +196,25 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
 
   // Save webhook configuration
   const handleSave = async () => {
-    // Validate mapping
-    if (!isValidMapping()) {
-      toast.error('Please map all required fields');
-      return;
+    // For new webhooks with sample JSON, we don't need to validate mapping
+    // The backend will auto-create columns and mapping
+    if (!webhook && sampleJson) {
+      // Validate JSON is parseable
+      const validation = validateJSON(sampleJson);
+      if (!validation.valid) {
+        toast.error(validation.error || 'Invalid JSON');
+        return;
+      }
+    } else if (!webhook && !sampleJson) {
+      // If no sample JSON, validate mapping manually
+      if (!isValidMapping()) {
+        toast.error('Please provide sample JSON or map all required fields');
+        return;
+      }
     }
 
     setIsSaving(true);
-    
+
     try {
       if (webhook) {
         // Update existing webhook
@@ -211,7 +222,7 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
           fieldMapping,
           isActive,
         });
-        
+
         if (response.data.success) {
           const updatedWebhook = response.data.data;
           setWebhook(updatedWebhook);
@@ -219,18 +230,18 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
           toast.success('Webhook updated successfully');
         }
       } else {
-        // Create new webhook
+        // Create new webhook with sample JSON for auto-column creation
         const response = await apiClient.webhooks.createIncoming({
           tableId,
-          fieldMapping,
-          isActive,
+          sampleJson: sampleJson, // Send sample JSON to backend
+          isActive: true, // Always set to active
         });
-        
+
         if (response.data.success) {
           const newWebhook = response.data.data;
           setWebhook(newWebhook);
           onWebhookUpdated(newWebhook);
-          toast.success('Webhook created successfully!');
+          toast.success('Webhook created successfully! Columns have been auto-created.');
           // Show success screen
           setMode('success');
         }
@@ -251,7 +262,7 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
       const response = await apiClient.webhooks.updateIncoming(webhook.id, {
         isActive: !isActive,
       });
-      
+
       if (response.data.success) {
         const updatedWebhook = response.data.data;
         setWebhook(updatedWebhook);
@@ -268,16 +279,16 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
   // Delete webhook
   const handleDelete = async () => {
     if (!webhook) return;
-    
+
     if (!confirm('Are you sure you want to delete this webhook? This action cannot be undone.')) {
       return;
     }
 
     setIsDeleting(true);
-    
+
     try {
       const response = await apiClient.webhooks.deleteIncoming(webhook.id);
-      
+
       if (response.data.success) {
         toast.success('Webhook deleted successfully');
         onWebhookUpdated(null);
@@ -304,7 +315,7 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
     .map(col => col.name);
 
   // Mask API key for display
-  const maskedApiKey = webhook?.apiKey 
+  const maskedApiKey = webhook?.apiKey
     ? `${webhook.apiKey.slice(0, 8)}${'*'.repeat(24)}`
     : '';
 
@@ -317,82 +328,44 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
             <DialogHeader>
               <DialogTitle>Configure Incoming Webhook</DialogTitle>
               <DialogDescription>
-                Test with sample data and map fields to create your webhook for {tableName}
+                Paste sample JSON data to automatically create table columns for {tableName}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-6">
-              {/* Step 1: Sample JSON Input */}
+              {/* Sample JSON Input */}
               <div className="space-y-3">
                 <Label htmlFor="sample-json" className="text-base font-semibold">
-                  Step 1: Test with Sample Data
+                  Paste Sample JSON Data
                 </Label>
                 <Textarea
                   id="sample-json"
                   value={sampleJson}
                   onChange={(e) => setSampleJson(e.target.value)}
-                  placeholder='{\n  "email": "test@example.com",\n  "name": "John Doe"\n}'
-                  className="font-mono text-sm min-h-[150px]"
+                  placeholder='{\n  "email": "test@example.com",\n  "firstName": "John",\n  "lastName": "Doe"\n}'
+                  className="font-mono text-sm min-h-[200px]"
                 />
-                <Button
-                  variant="outline"
-                  onClick={extractFieldsFromJson}
-                  className="w-full"
-                >
-                  Extract & Test Fields
-                </Button>
+                <p className="text-sm text-muted-foreground">
+                  Table columns will be automatically created from the JSON keys
+                </p>
               </div>
 
-              {/* Step 2: Field Mapping */}
-              {availableFields.length > 0 && (
-                <>
-                  <Separator />
-                  <div className="space-y-3">
-                    <Label className="text-base font-semibold">
-                      Step 2: Map Fields to Table Columns
-                    </Label>
-                    <FieldMappingBuilder
-                      availableFields={availableFields}
-                      tableColumns={tableColumns}
-                      mapping={fieldMapping}
-                      onChange={setFieldMapping}
-                    />
-                    
-                    {/* Required fields warning */}
-                    {unmappedRequiredFields.length > 0 && (
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Required fields must be mapped: {unmappedRequiredFields.join(', ')}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* Info about webhook URL */}
-              {availableFields.length > 0 && (
-                <>
-                  <Separator />
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Your webhook URL and API key will be generated after you create the webhook.
-                      Make sure to copy them securely - the API key won't be shown again.
-                    </AlertDescription>
-                  </Alert>
-                </>
-              )}
+              {/* Info about webhook */}
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>One-click setup:</strong> When you click "Create Webhook", we'll automatically create table columns from your JSON keys and generate your webhook URL and API key. The webhook will be set to active immediately.
+                </AlertDescription>
+              </Alert>
             </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button 
-                onClick={handleSave} 
-                disabled={isSaving || !isValidMapping()}
+              <Button
+                onClick={handleSave}
+                disabled={isSaving || !sampleJson.trim()}
               >
                 {isSaving ? (
                   <>
@@ -591,8 +564,8 @@ export const IncomingWebhookModal: React.FC<IncomingWebhookModalProps> = ({
                   />
                 </div>
 
-                <Button 
-                  onClick={handleSave} 
+                <Button
+                  onClick={handleSave}
                   disabled={isSaving || !isValidMapping()}
                   className="w-full"
                 >

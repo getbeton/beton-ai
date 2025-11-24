@@ -40,15 +40,20 @@ function generateApiKey(): string {
 /**
  * Create incoming webhook
  * POST /api/webhooks
+ * 
+ * Accepts optional sampleJson to auto-create columns and mapping.
+ * If sampleJson is provided, columns will be created automatically
+ * and field mapping will be generated.
  */
 router.post('/', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { tableId, fieldMapping, isActive = true } = req.body;
+    const { tableId, fieldMapping, isActive = true, sampleJson } = req.body;
     const userId = (req as any).user.userId;
 
     // Validate table exists and belongs to user
     const table = await prisma.userTable.findFirst({
       where: { id: tableId, userId },
+      include: { columns: true },
     });
 
     if (!table) {
@@ -70,6 +75,59 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
       });
     }
 
+    let finalFieldMapping = fieldMapping || {};
+
+    // If sample JSON is provided, auto-create columns and mapping
+    if (sampleJson) {
+      try {
+        const parsedJson = typeof sampleJson === 'string' ? JSON.parse(sampleJson) : sampleJson;
+        const jsonKeys = Object.keys(parsedJson);
+
+        console.log(`[Webhooks] Auto-creating columns for ${jsonKeys.length} fields from sample JSON`);
+
+        // Get the highest column order
+        const maxOrder = table.columns.reduce((max, col) => col.order > max ? col.order : max, -1);
+
+        // Create columns for each JSON key that doesn't already exist
+        const createdColumns = [];
+        for (let i = 0; i < jsonKeys.length; i++) {
+          const key = jsonKeys[i];
+
+          // Check if column with this name already exists
+          const existingColumn = table.columns.find(col => col.name.toLowerCase() === key.toLowerCase());
+
+          if (existingColumn) {
+            // Use existing column
+            finalFieldMapping[key] = existingColumn.id;
+            console.log(`[Webhooks] Using existing column for field "${key}": ${existingColumn.id}`);
+          } else {
+            // Create new column
+            const newColumn = await prisma.tableColumn.create({
+              data: {
+                tableId,
+                name: key,
+                type: 'text',
+                order: maxOrder + i + 1,
+                isEditable: true,
+                isRequired: false,
+              },
+            });
+
+            createdColumns.push(newColumn);
+            finalFieldMapping[key] = newColumn.id;
+            console.log(`[Webhooks] Created new column for field "${key}": ${newColumn.id}`);
+          }
+        }
+
+        console.log(`[Webhooks] Created ${createdColumns.length} new columns, reused ${jsonKeys.length - createdColumns.length} existing columns`);
+      } catch (parseError: any) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid sample JSON: ${parseError.message}`,
+        });
+      }
+    }
+
     // Generate unique webhook URL
     const uniqueId = `${tableId}_${Date.now()}`;
     const webhookUrl = `${process.env.API_BASE_URL || 'http://localhost:3001'}/api/webhooks/receive/${uniqueId}`;
@@ -85,11 +143,11 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
         url: webhookUrl,
         apiKey,
         isActive,
-        fieldMapping,
+        fieldMapping: finalFieldMapping,
       },
     });
 
-    console.log(`[Webhooks] Created incoming webhook: ${webhook.id} for table: ${tableId}`);
+    console.log(`[Webhooks] Created incoming webhook: ${webhook.id} for table: ${tableId} with ${Object.keys(finalFieldMapping).length} field mappings`);
 
     res.json({
       success: true,
