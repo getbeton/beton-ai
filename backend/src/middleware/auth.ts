@@ -22,8 +22,11 @@ export const authMiddleware = async (
 ) => {
   try {
     // Development mode bypass - skip authentication for local testing
-    if (process.env.NODE_ENV === 'development' || process.env.DEV_BYPASS_AUTH === 'true') {
-      console.log('[Auth] Development mode - bypassing authentication');
+    // SECURITY: Only enabled via explicit DEV_BYPASS_AUTH flag, never check NODE_ENV
+    // This prevents accidental auth bypass if NODE_ENV is not set to 'production'
+    // The DEV_BYPASS_AUTH must be explicitly set to 'true' to enable bypass
+    if (process.env.DEV_BYPASS_AUTH === 'true') {
+      console.warn('[Auth] WARNING: Development auth bypass is ENABLED - do not use in production!');
       
       // Inject a mock user for development
       req.user = {

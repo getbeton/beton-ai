@@ -683,27 +683,29 @@ router.post('/receive/:uniqueId', async (req: Request, res: Response) => {
       });
     }
 
-    // Find webhook by URL
-    const webhookUrl = `${process.env.API_BASE_URL || 'http://localhost:3001'}/api/webhooks/receive/${uniqueId}`;
+    // Find webhook by API key directly (not by URL reconstruction)
+    // This avoids issues where API_BASE_URL differs between creation and receiving
+    // The apiKey is unique and provides reliable lookup regardless of environment config
     const webhook = await prisma.incomingWebhook.findUnique({
-      where: { url: webhookUrl },
+      where: { apiKey },
       include: { table: { include: { columns: true } } },
     });
 
     if (!webhook) {
-      console.log(`[Webhooks] Webhook not found: ${uniqueId}`);
-      return res.status(404).json({
-        success: false,
-        error: 'Webhook not found',
-      });
-    }
-
-    // Validate API key matches
-    if (webhook.apiKey !== apiKey) {
-      console.log(`[Webhooks] Invalid API key for webhook: ${webhook.id}`);
+      console.log(`[Webhooks] Webhook not found for API key (uniqueId hint: ${uniqueId})`);
       return res.status(401).json({
         success: false,
         error: 'Invalid API key',
+      });
+    }
+
+    // Verify the uniqueId in URL matches the webhook URL pattern (optional security check)
+    // This ensures the request is being made to the correct endpoint
+    if (!webhook.url.endsWith(`/receive/${uniqueId}`)) {
+      console.log(`[Webhooks] URL mismatch: expected uniqueId in URL doesn't match webhook URL`);
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid webhook endpoint',
       });
     }
 
@@ -814,30 +816,34 @@ router.post('/receive/:uniqueId', async (req: Request, res: Response) => {
       return { updatedWebhook: currentWebhook, mappedData: data, columnsCreated: newColumnsCount };
     });
 
-    // Get the next row order
-    // This can be outside the transaction as row insertion order isn't strictly critical to match concurrent requests perfectly
-    // and we want to minimize transaction time. Though for strict ordering, it could be inside.
-    // Given we are creating a row, let's just do it.
-    const maxOrderRow = await prisma.tableRow.findFirst({
-      where: { tableId: webhook.tableId },
-      orderBy: { order: 'desc' },
-      select: { order: true },
-    });
-    const nextOrder = (maxOrderRow?.order || 0) + 1;
+    // Create row with cells inside a transaction to ensure atomic row order assignment
+    // This prevents race conditions where concurrent requests could get the same order number
+    const row = await prisma.$transaction(async (tx) => {
+      // Lock the table row with highest order to serialize row insertions
+      // Using a raw query with FOR UPDATE to lock the relevant row(s)
+      const maxOrderResult = await tx.$queryRaw<Array<{ max_order: number | null }>>`
+        SELECT COALESCE(MAX("order"), 0) as max_order 
+        FROM "table_rows" 
+        WHERE "tableId" = ${webhook.tableId}
+        FOR UPDATE
+      `;
+      
+      const nextOrder = (maxOrderResult[0]?.max_order || 0) + 1;
 
-    // Create row with cells
-    const row = await prisma.tableRow.create({
-      data: {
-        tableId: webhook.tableId,
-        order: nextOrder,
-        cells: {
-          create: Object.entries(mappedData).map(([columnId, value]) => ({
-            columnId,
-            value: String(value),
-          })),
+      // Create the row with the guaranteed unique order within this transaction
+      return tx.tableRow.create({
+        data: {
+          tableId: webhook.tableId,
+          order: nextOrder,
+          cells: {
+            create: Object.entries(mappedData).map(([columnId, value]) => ({
+              columnId,
+              value: String(value),
+            })),
+          },
         },
-      },
-      include: { cells: true },
+        include: { cells: true },
+      });
     });
 
     // Update webhook stats
