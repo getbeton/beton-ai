@@ -34,6 +34,341 @@ function generateApiKey(): string {
 }
 
 // ============================================================================
+// OUTBOUND WEBHOOK ROUTES
+// ============================================================================
+
+/**
+ * Create outbound webhook
+ * POST /api/webhooks/outbound
+ */
+router.post('/outbound', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { tableId, url, events, isActive = true, retryCount, timeout } = req.body;
+    const userId = (req as any).user.id;
+
+    // Validate table exists and belongs to user
+    const table = await prisma.userTable.findFirst({
+      where: { id: tableId, userId },
+    });
+
+    if (!table) {
+      return res.status(404).json({
+        success: false,
+        error: 'Table not found',
+      });
+    }
+
+    // Validate URL
+    try {
+      new URL(url);
+    } catch {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid webhook URL',
+      });
+    }
+
+    // Validate events
+    if (!events || !Array.isArray(events) || events.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'At least one event is required',
+      });
+    }
+
+    const validEvents = ['row.created', 'row.updated', 'row.deleted'];
+    const invalidEvents = events.filter((e: string) => !validEvents.includes(e));
+    if (invalidEvents.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid events: ${invalidEvents.join(', ')}`,
+      });
+    }
+
+    // Create webhook
+    const webhook = await prisma.outboundWebhook.create({
+      data: {
+        userId,
+        tableId,
+        url,
+        events,
+        isActive,
+        retryCount: retryCount || 3,
+        timeout: timeout || 30000,
+      },
+    });
+
+    console.log(`[Webhooks] Created outbound webhook: ${webhook.id} for table: ${tableId}`);
+
+    res.json({
+      success: true,
+      data: webhook,
+    });
+  } catch (error: any) {
+    console.error('[Webhooks] Create outbound webhook error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create webhook',
+    });
+  }
+});
+
+/**
+ * List outbound webhooks
+ * GET /api/webhooks/outbound?tableId=xxx
+ */
+router.get('/outbound', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { tableId } = req.query;
+    const userId = (req as any).user.id;
+
+    const where: any = { userId };
+    if (tableId) {
+      where.tableId = tableId as string;
+    }
+
+    const webhooks = await prisma.outboundWebhook.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      data: webhooks,
+    });
+  } catch (error: any) {
+    console.error('[Webhooks] List outbound webhooks error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to list webhooks',
+    });
+  }
+});
+
+/**
+ * Update outbound webhook
+ * PUT /api/webhooks/outbound/:id
+ */
+router.put('/outbound/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { url, events, isActive, retryCount, timeout } = req.body;
+    const userId = (req as any).user.id;
+
+    // Verify webhook belongs to user
+    const existing = await prisma.outboundWebhook.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Webhook not found',
+      });
+    }
+
+    // Validate URL if provided
+    if (url) {
+      try {
+        new URL(url);
+      } catch {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid webhook URL',
+        });
+      }
+    }
+
+    // Update webhook
+    const webhook = await prisma.outboundWebhook.update({
+      where: { id },
+      data: {
+        url: url || existing.url,
+        events: events || existing.events,
+        isActive: isActive !== undefined ? isActive : existing.isActive,
+        retryCount: retryCount !== undefined ? retryCount : existing.retryCount,
+        timeout: timeout !== undefined ? timeout : existing.timeout,
+      },
+    });
+
+    console.log(`[Webhooks] Updated outbound webhook: ${id}`);
+
+    res.json({
+      success: true,
+      data: webhook,
+    });
+  } catch (error: any) {
+    console.error('[Webhooks] Update outbound webhook error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update webhook',
+    });
+  }
+});
+
+/**
+ * Delete outbound webhook
+ * DELETE /api/webhooks/outbound/:id
+ */
+router.delete('/outbound/:id', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).user.id;
+
+    // Verify webhook belongs to user
+    const existing = await prisma.outboundWebhook.findFirst({
+      where: { id, userId },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'Webhook not found',
+      });
+    }
+
+    // Delete webhook (deliveries will cascade)
+    await prisma.outboundWebhook.delete({
+      where: { id },
+    });
+
+    console.log(`[Webhooks] Deleted outbound webhook: ${id}`);
+
+    res.json({
+      success: true,
+    });
+  } catch (error: any) {
+    console.error('[Webhooks] Delete outbound webhook error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete webhook',
+    });
+  }
+});
+
+/**
+ * Test outbound webhook
+ * POST /api/webhooks/outbound/:id/test
+ */
+router.post('/outbound/:id/test', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).user.id;
+
+    // Get webhook
+    const webhook = await prisma.outboundWebhook.findFirst({
+      where: { id, userId },
+      include: { table: true },
+    });
+
+    if (!webhook) {
+      return res.status(404).json({
+        success: false,
+        error: 'Webhook not found',
+      });
+    }
+
+    // Create test payload
+    const testPayload = {
+      event: 'test',
+      table: webhook.table.name,
+      tableId: webhook.tableId,
+      row: {
+        id: 'test-row-id',
+        createdAt: new Date().toISOString(),
+        data: {
+          test: 'This is a test webhook delivery',
+        },
+      },
+    };
+
+    // Send test request
+    const startTime = Date.now();
+    try {
+      const response = await axios.post(webhook.url, testPayload, {
+        timeout: webhook.timeout,
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Beton-AI-Webhooks/1.0',
+        },
+      });
+
+      const responseTime = Date.now() - startTime;
+
+      res.json({
+        success: true,
+        data: {
+          success: true,
+          statusCode: response.status,
+          responseTime,
+          responseBody: response.data,
+        },
+      });
+    } catch (error: any) {
+      const responseTime = Date.now() - startTime;
+
+      res.json({
+        success: true,
+        data: {
+          success: false,
+          statusCode: error.response?.status || null,
+          responseTime,
+          error: error.message,
+          responseBody: error.response?.data,
+        },
+      });
+    }
+  } catch (error: any) {
+    console.error('[Webhooks] Test outbound webhook error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to test webhook',
+    });
+  }
+});
+
+/**
+ * Get webhook deliveries
+ * GET /api/webhooks/outbound/:id/deliveries
+ */
+router.get('/outbound/:id/deliveries', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).user.id;
+
+    // Verify webhook belongs to user
+    const webhook = await prisma.outboundWebhook.findFirst({
+      where: { id, userId },
+    });
+
+    if (!webhook) {
+      return res.status(404).json({
+        success: false,
+        error: 'Webhook not found',
+      });
+    }
+
+    // Get recent deliveries (last 20)
+    const deliveries = await prisma.webhookDelivery.findMany({
+      where: { webhookId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    res.json({
+      success: true,
+      data: deliveries,
+    });
+  } catch (error: any) {
+    console.error('[Webhooks] Get deliveries error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get deliveries',
+    });
+  }
+});
+
+// ============================================================================
 // INCOMING WEBHOOK ROUTES
 // ============================================================================
 
@@ -48,7 +383,7 @@ function generateApiKey(): string {
 router.post('/', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { tableId, fieldMapping, isActive = true, sampleJson } = req.body;
-    const userId = (req as any).user.userId;
+    const userId = (req as any).user.id;
 
     // Validate table exists and belongs to user
     const table = await prisma.userTable.findFirst({
@@ -168,7 +503,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
  */
 router.get('/', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user.userId;
+    const userId = (req as any).user.id;
 
     const webhooks = await prisma.incomingWebhook.findMany({
       where: { userId },
@@ -195,7 +530,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 router.get('/table/:tableId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { tableId } = req.params;
-    const userId = (req as any).user.userId;
+    const userId = (req as any).user.id;
 
     // Verify table belongs to user
     const table = await prisma.userTable.findFirst({
@@ -241,7 +576,7 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { fieldMapping, isActive } = req.body;
-    const userId = (req as any).user.userId;
+    const userId = (req as any).user.id;
 
     // Verify webhook belongs to user
     const existing = await prisma.incomingWebhook.findFirst({
@@ -286,7 +621,7 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
 router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user.userId;
+    const userId = (req as any).user.id;
 
     // Verify webhook belongs to user
     const existing = await prisma.incomingWebhook.findFirst({
@@ -380,58 +715,109 @@ router.post('/receive/:uniqueId', async (req: Request, res: Response) => {
       });
     }
 
-    // Auto-create columns for unmapped payload keys
-    let fieldMapping = webhook.fieldMapping as Record<string, string>;
-    const payloadKeys = Object.keys(payload);
-    const unmappedKeys = payloadKeys.filter(key => !fieldMapping[key]);
-
-    if (unmappedKeys.length > 0) {
-      console.log(`[Webhooks] Auto-creating columns for unmapped keys: ${unmappedKeys.join(', ')}`);
-
-      // Get the highest column order
-      const maxOrderColumn = webhook.table.columns.reduce((max, col) =>
-        col.order > max ? col.order : max, -1
-      );
-
-      // Create new columns for unmapped keys
-      const newColumns = await Promise.all(
-        unmappedKeys.map((key, index) =>
-          prisma.tableColumn.create({
-            data: {
-              tableId: webhook.tableId,
-              name: key,
-              type: 'text',
-              order: maxOrderColumn + index + 1,
-              isEditable: true,
-            },
-          })
-        )
-      );
-
-      // Update field mapping to include new columns
-      newColumns.forEach((col, index) => {
-        fieldMapping[unmappedKeys[index]] = col.id;
-      });
-
-      // Update webhook with new field mapping
-      await prisma.incomingWebhook.update({
-        where: { id: webhook.id },
-        data: { fieldMapping },
-      });
-
-      console.log(`[Webhooks] Created ${newColumns.length} new columns`);
-    }
-
-    // Map payload to table columns
-    const mappedData: Record<string, any> = {};
-
-    Object.entries(fieldMapping).forEach(([sourceField, targetColumnId]) => {
-      if (payload[sourceField] !== undefined) {
-        mappedData[targetColumnId] = payload[sourceField];
+    // Use a transaction to handle column creation and mapping updates safely
+    // This prevents race conditions when multiple concurrent requests try to create the same columns
+    const { updatedWebhook, mappedData, columnsCreated } = await prisma.$transaction(async (tx) => {
+      // Lock the webhook row to prevent concurrent updates to fieldMapping
+      // This serializes column creation logic for this specific webhook
+      const lockedWebhooks = await tx.$queryRaw`SELECT id FROM "incoming_webhooks" WHERE id = ${webhook.id} FOR UPDATE`;
+      
+      if (!Array.isArray(lockedWebhooks) || lockedWebhooks.length === 0) {
+        throw new Error('Failed to lock webhook for update');
       }
+
+      // Re-fetch webhook to get latest fieldMapping and table columns
+      // The lock ensures we see the latest committed state and no one else can change it until we finish
+      const currentWebhook = await tx.incomingWebhook.findUniqueOrThrow({
+        where: { id: webhook.id },
+        include: { table: { include: { columns: true } } },
+      });
+
+      let fieldMapping = currentWebhook.fieldMapping as Record<string, string>;
+      const payloadKeys = Object.keys(payload);
+      const unmappedKeys = payloadKeys.filter(key => !fieldMapping[key]);
+      let newColumnsCount = 0;
+
+      if (unmappedKeys.length > 0) {
+        console.log(`[Webhooks] Auto-creating columns for unmapped keys: ${unmappedKeys.join(', ')}`);
+
+        // Get the highest column order
+        const maxOrderColumn = currentWebhook.table.columns.reduce((max, col) =>
+          col.order > max ? col.order : max, -1
+        );
+
+        let currentOrder = maxOrderColumn + 1;
+        const existingColumns = currentWebhook.table.columns;
+
+        // Process each unmapped key
+        for (const key of unmappedKeys) {
+          // Check if column exists (by name) but isn't mapped (edge case)
+          const existingCol = existingColumns.find(c => c.name === key);
+          
+          if (existingCol) {
+            // Map to existing column
+            fieldMapping[key] = existingCol.id;
+          } else {
+            // Create new column
+            try {
+              // We create columns sequentially to ensure order is correct
+              const newCol = await tx.tableColumn.create({
+                data: {
+                  tableId: currentWebhook.tableId,
+                  name: key,
+                  type: 'text',
+                  order: currentOrder++,
+                  isEditable: true,
+                },
+              });
+              
+              fieldMapping[key] = newCol.id;
+              newColumnsCount++;
+            } catch (err: any) {
+              // If column creation failed (e.g. due to race condition or unique constraint), 
+              // try to find it again - it might have been created by another transaction 
+              // despite our lock (e.g. manual column addition)
+              const retryCol = await tx.tableColumn.findFirst({
+                where: { 
+                  tableId: currentWebhook.tableId,
+                  name: key
+                }
+              });
+              
+              if (retryCol) {
+                fieldMapping[key] = retryCol.id;
+              } else {
+                // Real error, rethrow
+                throw err;
+              }
+            }
+          }
+        }
+
+        // Update webhook with new field mapping
+        await tx.incomingWebhook.update({
+          where: { id: webhook.id },
+          data: { fieldMapping },
+        });
+
+        console.log(`[Webhooks] Updated field mapping with ${newColumnsCount} new columns`);
+      }
+
+      // Map payload to table columns using the updated mapping
+      const data: Record<string, any> = {};
+      Object.entries(fieldMapping).forEach(([sourceField, targetColumnId]) => {
+        if (payload[sourceField] !== undefined) {
+          data[targetColumnId] = payload[sourceField];
+        }
+      });
+
+      return { updatedWebhook: currentWebhook, mappedData: data, columnsCreated: newColumnsCount };
     });
 
     // Get the next row order
+    // This can be outside the transaction as row insertion order isn't strictly critical to match concurrent requests perfectly
+    // and we want to minimize transaction time. Though for strict ordering, it could be inside.
+    // Given we are creating a row, let's just do it.
     const maxOrderRow = await prisma.tableRow.findFirst({
       where: { tableId: webhook.tableId },
       orderBy: { order: 'desc' },
@@ -470,7 +856,7 @@ router.post('/receive/:uniqueId', async (req: Request, res: Response) => {
       data: {
         rowId: row.id,
         mappedData,
-        columnsCreated: unmappedKeys.length,
+        columnsCreated,
       },
     });
   } catch (error: any) {
@@ -482,340 +868,4 @@ router.post('/receive/:uniqueId', async (req: Request, res: Response) => {
   }
 });
 
-// ============================================================================
-// OUTBOUND WEBHOOK ROUTES
-// ============================================================================
-
-/**
- * Create outbound webhook
- * POST /api/webhooks/outbound
- */
-router.post('/outbound', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { tableId, url, events, isActive = true, retryCount, timeout } = req.body;
-    const userId = (req as any).user.userId;
-
-    // Validate table exists and belongs to user
-    const table = await prisma.userTable.findFirst({
-      where: { id: tableId, userId },
-    });
-
-    if (!table) {
-      return res.status(404).json({
-        success: false,
-        error: 'Table not found',
-      });
-    }
-
-    // Validate URL
-    try {
-      new URL(url);
-    } catch {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid webhook URL',
-      });
-    }
-
-    // Validate events
-    if (!events || !Array.isArray(events) || events.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'At least one event is required',
-      });
-    }
-
-    const validEvents = ['row.created', 'row.updated', 'row.deleted'];
-    const invalidEvents = events.filter((e: string) => !validEvents.includes(e));
-    if (invalidEvents.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid events: ${invalidEvents.join(', ')}`,
-      });
-    }
-
-    // Create webhook
-    const webhook = await prisma.outboundWebhook.create({
-      data: {
-        userId,
-        tableId,
-        url,
-        events,
-        isActive,
-        retryCount: retryCount || 3,
-        timeout: timeout || 30000,
-      },
-    });
-
-    console.log(`[Webhooks] Created outbound webhook: ${webhook.id} for table: ${tableId}`);
-
-    res.json({
-      success: true,
-      data: webhook,
-    });
-  } catch (error: any) {
-    console.error('[Webhooks] Create outbound webhook error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to create webhook',
-    });
-  }
-});
-
-/**
- * List outbound webhooks
- * GET /api/webhooks/outbound?tableId=xxx
- */
-router.get('/outbound', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { tableId } = req.query;
-    const userId = (req as any).user.userId;
-
-    const where: any = { userId };
-    if (tableId) {
-      where.tableId = tableId as string;
-    }
-
-    const webhooks = await prisma.outboundWebhook.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
-
-    res.json({
-      success: true,
-      data: webhooks,
-    });
-  } catch (error: any) {
-    console.error('[Webhooks] List outbound webhooks error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to list webhooks',
-    });
-  }
-});
-
-/**
- * Update outbound webhook
- * PUT /api/webhooks/outbound/:id
- */
-router.put('/outbound/:id', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { url, events, isActive, retryCount, timeout } = req.body;
-    const userId = (req as any).user.userId;
-
-    // Verify webhook belongs to user
-    const existing = await prisma.outboundWebhook.findFirst({
-      where: { id, userId },
-    });
-
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        error: 'Webhook not found',
-      });
-    }
-
-    // Validate URL if provided
-    if (url) {
-      try {
-        new URL(url);
-      } catch {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid webhook URL',
-        });
-      }
-    }
-
-    // Update webhook
-    const webhook = await prisma.outboundWebhook.update({
-      where: { id },
-      data: {
-        url: url || existing.url,
-        events: events || existing.events,
-        isActive: isActive !== undefined ? isActive : existing.isActive,
-        retryCount: retryCount !== undefined ? retryCount : existing.retryCount,
-        timeout: timeout !== undefined ? timeout : existing.timeout,
-      },
-    });
-
-    console.log(`[Webhooks] Updated outbound webhook: ${id}`);
-
-    res.json({
-      success: true,
-      data: webhook,
-    });
-  } catch (error: any) {
-    console.error('[Webhooks] Update outbound webhook error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to update webhook',
-    });
-  }
-});
-
-/**
- * Delete outbound webhook
- * DELETE /api/webhooks/outbound/:id
- */
-router.delete('/outbound/:id', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const userId = (req as any).user.userId;
-
-    // Verify webhook belongs to user
-    const existing = await prisma.outboundWebhook.findFirst({
-      where: { id, userId },
-    });
-
-    if (!existing) {
-      return res.status(404).json({
-        success: false,
-        error: 'Webhook not found',
-      });
-    }
-
-    // Delete webhook (deliveries will cascade)
-    await prisma.outboundWebhook.delete({
-      where: { id },
-    });
-
-    console.log(`[Webhooks] Deleted outbound webhook: ${id}`);
-
-    res.json({
-      success: true,
-    });
-  } catch (error: any) {
-    console.error('[Webhooks] Delete outbound webhook error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to delete webhook',
-    });
-  }
-});
-
-/**
- * Test outbound webhook
- * POST /api/webhooks/outbound/:id/test
- */
-router.post('/outbound/:id/test', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const userId = (req as any).user.userId;
-
-    // Get webhook
-    const webhook = await prisma.outboundWebhook.findFirst({
-      where: { id, userId },
-      include: { table: true },
-    });
-
-    if (!webhook) {
-      return res.status(404).json({
-        success: false,
-        error: 'Webhook not found',
-      });
-    }
-
-    // Create test payload
-    const testPayload = {
-      event: 'test',
-      table: webhook.table.name,
-      tableId: webhook.tableId,
-      row: {
-        id: 'test-row-id',
-        createdAt: new Date().toISOString(),
-        data: {
-          test: 'This is a test webhook delivery',
-        },
-      },
-    };
-
-    // Send test request
-    const startTime = Date.now();
-    try {
-      const response = await axios.post(webhook.url, testPayload, {
-        timeout: webhook.timeout,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Beton-AI-Webhooks/1.0',
-        },
-      });
-
-      const responseTime = Date.now() - startTime;
-
-      res.json({
-        success: true,
-        data: {
-          success: true,
-          statusCode: response.status,
-          responseTime,
-          responseBody: response.data,
-        },
-      });
-    } catch (error: any) {
-      const responseTime = Date.now() - startTime;
-
-      res.json({
-        success: true,
-        data: {
-          success: false,
-          statusCode: error.response?.status || null,
-          responseTime,
-          error: error.message,
-          responseBody: error.response?.data,
-        },
-      });
-    }
-  } catch (error: any) {
-    console.error('[Webhooks] Test outbound webhook error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to test webhook',
-    });
-  }
-});
-
-/**
- * Get webhook deliveries
- * GET /api/webhooks/outbound/:id/deliveries
- */
-router.get('/outbound/:id/deliveries', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const userId = (req as any).user.userId;
-
-    // Verify webhook belongs to user
-    const webhook = await prisma.outboundWebhook.findFirst({
-      where: { id, userId },
-    });
-
-    if (!webhook) {
-      return res.status(404).json({
-        success: false,
-        error: 'Webhook not found',
-      });
-    }
-
-    // Get recent deliveries (last 20)
-    const deliveries = await prisma.webhookDelivery.findMany({
-      where: { webhookId: id },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
-
-    res.json({
-      success: true,
-      data: deliveries,
-    });
-  } catch (error: any) {
-    console.error('[Webhooks] Get deliveries error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to get deliveries',
-    });
-  }
-});
-
 export default router;
-
