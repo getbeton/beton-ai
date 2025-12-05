@@ -36,11 +36,7 @@ MIGRATION_ATTEMPT=1
 
 while [ $MIGRATION_ATTEMPT -le $MAX_MIGRATION_ATTEMPTS ]; do
     echo "📦 Attempting migrations (attempt $MIGRATION_ATTEMPT of $MAX_MIGRATION_ATTEMPTS)..."
-    
-    # Reset the database schema to ensure clean migration
-    echo "🧹 Resetting database schema..."
-    psql -h postgres -U postgres -d beton_ai -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" 2>/dev/null || true
-    
+
     if npx prisma migrate deploy; then
         echo "✅ Migrations completed successfully!"
         break
