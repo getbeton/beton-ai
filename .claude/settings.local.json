@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(railway status:*)",
+      "Bash(railway environment:*)",
+      "Bash(railway service list:*)",
+      "Bash(railway link:*)",
+      "Bash(railway variables:*)",
+      "Bash(supabase projects list:*)",
+      "Bash(supabase projects api-keys:*)",
+      "Bash(ls:*)",
+      "Bash(git -C /Users/nadyyym/yarik-beton-ai/beton-ai log --oneline -10)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(railway logs:*)",
+      "Bash(curl:*)",
+      "Bash(railway service:*)",
+      "Bash(railway run:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm install:*)",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git branch:*)",
+      "Bash(git reset:*)",
+      "Bash(npm run build:*)",
+      "Bash(open:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
