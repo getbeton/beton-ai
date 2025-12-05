@@ -1,10 +1,5 @@
 import axios from 'axios';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from './supabase';
 
 // Create axios instance with base configuration
 const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -23,7 +18,7 @@ api.interceptors.request.use(async (config) => {
     // Backend will inject mock user in development
     return config;
   }
-  
+
   const { data: { session } } = await supabase.auth.getSession();
   if (session?.access_token) {
     config.headers.Authorization = `Bearer ${session.access_token}`;
@@ -216,42 +211,42 @@ export const apiClient = {
 
   // Integrations endpoints
   integrations: {
-    list: (): Promise<{ data: { success: boolean; data: Integration[] } }> => 
+    list: (): Promise<{ data: { success: boolean; data: Integration[] } }> =>
       api.get('/api/integrations'),
-    
-    get: (id: string): Promise<{ data: { success: boolean; data: Integration } }> => 
+
+    get: (id: string): Promise<{ data: { success: boolean; data: Integration } }> =>
       api.get(`/api/integrations/${id}`),
-    
-    create: (data: CreateIntegrationRequest): Promise<{ data: { success: boolean; data: Integration } }> => 
+
+    create: (data: CreateIntegrationRequest): Promise<{ data: { success: boolean; data: Integration } }> =>
       api.post('/api/integrations', data),
-    
-    update: (id: string, data: UpdateIntegrationRequest): Promise<{ data: { success: boolean; data: Integration } }> => 
+
+    update: (id: string, data: UpdateIntegrationRequest): Promise<{ data: { success: boolean; data: Integration } }> =>
       api.put(`/api/integrations/${id}`, data),
-    
-    delete: (id: string): Promise<{ data: { success: boolean } }> => 
+
+    delete: (id: string): Promise<{ data: { success: boolean } }> =>
       api.delete(`/api/integrations/${id}`),
-    
-    healthCheck: (id: string): Promise<{ data: { success: boolean; data: HealthCheckResponse } }> => 
+
+    healthCheck: (id: string): Promise<{ data: { success: boolean; data: HealthCheckResponse } }> =>
       api.post(`/api/integrations/${id}/health-check`),
 
     // Validate API key for a service (before creating integration)
-    validateKey: (data: { serviceName: string; apiKey: string }): Promise<{ data: { success: boolean; data: any; message: string } }> => 
+    validateKey: (data: { serviceName: string; apiKey: string }): Promise<{ data: { success: boolean; data: any; message: string } }> =>
       api.post('/api/integrations/validate-key', data),
 
     // Get available platform keys for a service
-    getPlatformKeys: (serviceName: string): Promise<{ data: { success: boolean; data: PlatformApiKey[] } }> => 
+    getPlatformKeys: (serviceName: string): Promise<{ data: { success: boolean; data: PlatformApiKey[] } }> =>
       api.get(`/api/integrations/platform-keys/${serviceName}`),
 
     // Apollo People Search
-    apolloPeopleSearch: (integrationId: string, filters: any): Promise<{ data: { success: boolean; data: any } }> => 
+    apolloPeopleSearch: (integrationId: string, filters: any): Promise<{ data: { success: boolean; data: any } }> =>
       api.post(`/api/integrations/${integrationId}/apollo/people-search`, { filters }),
 
     // OpenAI Text Generation
-    openaiTextGeneration: (integrationId: string, request: { prompt: string; model?: string; maxTokens?: number; temperature?: number; systemPrompt?: string }): Promise<{ data: { success: boolean; data: any } }> => 
+    openaiTextGeneration: (integrationId: string, request: { prompt: string; model?: string; maxTokens?: number; temperature?: number; systemPrompt?: string }): Promise<{ data: { success: boolean; data: any } }> =>
       api.post(`/api/integrations/${integrationId}/openai/text-generation`, { request }),
 
     // LeadMagic Email Finder
-    leadmagicFindEmail: (integrationId: string, request: { firstName: string; lastName: string; domain?: string; companyName?: string }): Promise<{ data: { success: boolean; data: any } }> => 
+    leadmagicFindEmail: (integrationId: string, request: { firstName: string; lastName: string; domain?: string; companyName?: string }): Promise<{ data: { success: boolean; data: any } }> =>
       api.post(`/api/integrations/${integrationId}/leadmagic/find-email`, request),
 
     // Findymail Email Finder
@@ -306,38 +301,38 @@ export const apiClient = {
 
   // Platform API Keys endpoints (admin only)
   platformKeys: {
-    list: (): Promise<{ data: { success: boolean; data: PlatformApiKey[] } }> => 
+    list: (): Promise<{ data: { success: boolean; data: PlatformApiKey[] } }> =>
       api.get('/api/platform-keys'),
-    
-    getByService: (serviceName: string): Promise<{ data: { success: boolean; data: PlatformApiKey[] } }> => 
+
+    getByService: (serviceName: string): Promise<{ data: { success: boolean; data: PlatformApiKey[] } }> =>
       api.get(`/api/platform-keys/service/${serviceName}`),
-    
+
     create: (data: {
       serviceName: string;
       apiKey: string;
       description?: string;
       rateLimit?: number;
-    }): Promise<{ data: { success: boolean; data: PlatformApiKey } }> => 
+    }): Promise<{ data: { success: boolean; data: PlatformApiKey } }> =>
       api.post('/api/platform-keys', data),
-    
+
     update: (id: string, data: {
       apiKey?: string;
       isActive?: boolean;
       description?: string;
       rateLimit?: number;
-    }): Promise<{ data: { success: boolean; data: PlatformApiKey } }> => 
+    }): Promise<{ data: { success: boolean; data: PlatformApiKey } }> =>
       api.put(`/api/platform-keys/${id}`, data),
-    
-    delete: (id: string): Promise<{ data: { success: boolean } }> => 
+
+    delete: (id: string): Promise<{ data: { success: boolean } }> =>
       api.delete(`/api/platform-keys/${id}`),
 
-    getStats: (): Promise<{ data: { success: boolean; data: any[] } }> => 
+    getStats: (): Promise<{ data: { success: boolean; data: any[] } }> =>
       api.get('/api/platform-keys/stats'),
   },
 
   // Table Management endpoints
   tables: {
-    list: (archived = false): Promise<{ data: { success: boolean; data: UserTable[] } }> => 
+    list: (archived = false): Promise<{ data: { success: boolean; data: UserTable[] } }> =>
       api.get(`/api/tables?archived=${archived}`),
 
     get: (id: string, options?: {
@@ -357,46 +352,46 @@ export const apiClient = {
       if (options?.filters && options.filters.length > 0) {
         params.append('filters', JSON.stringify(options.filters));
       }
-      
+
       const queryString = params.toString();
       return api.get(`/api/tables/${id}${queryString ? `?${queryString}` : ''}`);
     },
 
-    create: (data: CreateTableRequest): Promise<{ data: { success: boolean; data: UserTable } }> => 
+    create: (data: CreateTableRequest): Promise<{ data: { success: boolean; data: UserTable } }> =>
       api.post('/api/tables', data),
 
-    update: (id: string, data: UpdateTableRequest): Promise<{ data: { success: boolean; data: UserTable } }> => 
+    update: (id: string, data: UpdateTableRequest): Promise<{ data: { success: boolean; data: UserTable } }> =>
       api.put(`/api/tables/${id}`, data),
 
-    delete: (id: string): Promise<{ data: { success: boolean } }> => 
+    delete: (id: string): Promise<{ data: { success: boolean } }> =>
       api.delete(`/api/tables/${id}`),
 
     // Column management
-    addColumn: (tableId: string, data: CreateColumnRequest): Promise<{ data: { success: boolean; data: TableColumn } }> => 
+    addColumn: (tableId: string, data: CreateColumnRequest): Promise<{ data: { success: boolean; data: TableColumn } }> =>
       api.post(`/api/tables/${tableId}/columns`, data),
 
-    updateColumn: (tableId: string, columnId: string, data: Partial<CreateColumnRequest>): Promise<{ data: { success: boolean; data: TableColumn } }> => 
+    updateColumn: (tableId: string, columnId: string, data: Partial<CreateColumnRequest>): Promise<{ data: { success: boolean; data: TableColumn } }> =>
       api.put(`/api/tables/${tableId}/columns/${columnId}`, data),
 
-    deleteColumn: (tableId: string, columnId: string): Promise<{ data: { success: boolean } }> => 
+    deleteColumn: (tableId: string, columnId: string): Promise<{ data: { success: boolean } }> =>
       api.delete(`/api/tables/${tableId}/columns/${columnId}`),
 
     // Row management
-    addRow: (tableId: string, data: Record<string, any>): Promise<{ data: { success: boolean; data: TableRow } }> => 
+    addRow: (tableId: string, data: Record<string, any>): Promise<{ data: { success: boolean; data: TableRow } }> =>
       api.post(`/api/tables/${tableId}/rows`, { data }),
 
-    bulkAddRows: (tableId: string, rows: Record<string, any>[]): Promise<{ data: { success: boolean; data: TableRow[] } }> => 
+    bulkAddRows: (tableId: string, rows: Record<string, any>[]): Promise<{ data: { success: boolean; data: TableRow[] } }> =>
       api.post(`/api/tables/${tableId}/rows/bulk`, { rows }),
 
-    deleteRow: (tableId: string, rowId: string): Promise<{ data: { success: boolean } }> => 
+    deleteRow: (tableId: string, rowId: string): Promise<{ data: { success: boolean } }> =>
       api.delete(`/api/tables/${tableId}/rows/${rowId}`),
 
     // Cell management
-    updateCell: (tableId: string, rowId: string, columnId: string, value: any): Promise<{ data: { success: boolean; data: TableCell } }> => 
+    updateCell: (tableId: string, rowId: string, columnId: string, value: any): Promise<{ data: { success: boolean; data: TableCell } }> =>
       api.put(`/api/tables/${tableId}/rows/${rowId}/cells/${columnId}`, { value }),
 
     // Import from Apollo
-    importFromApollo: (tableId: string, searchResults: any): Promise<{ data: { success: boolean; data: TableRow[] } }> => 
+    importFromApollo: (tableId: string, searchResults: any): Promise<{ data: { success: boolean; data: TableRow[] } }> =>
       api.post(`/api/tables/${tableId}/import/apollo`, { searchResults }),
 
     // CSV Upload
@@ -404,13 +399,13 @@ export const apiClient = {
       const formData = new FormData();
       formData.append('file', file);
       if (tableName) formData.append('tableName', tableName);
-      
+
       // Get auth token manually for FormData request
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated');
       }
-      
+
       const response = await fetch(`${baseURL}/api/tables/upload-csv`, {
         method: 'POST',
         headers: {
@@ -419,21 +414,21 @@ export const apiClient = {
         },
         body: formData,
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Upload failed: ${response.statusText}`);
       }
-      
+
       return response.json();
     },
   },
 
   // Legacy API Keys endpoints (for backward compatibility if needed)
   apiKeys: {
-    list: (): Promise<{ data: { success: boolean; data: Integration[] } }> => 
+    list: (): Promise<{ data: { success: boolean; data: Integration[] } }> =>
       api.get('/api/integrations'), // Redirect to integrations
-    
+
     create: (data: any): Promise<{ data: { success: boolean; data: Integration } }> => {
       // Convert old format to new integration format
       const integrationData: CreateIntegrationRequest = {
@@ -447,20 +442,20 @@ export const apiClient = {
       };
       return api.post('/api/integrations', integrationData);
     },
-    
-    delete: (id: string): Promise<{ data: { success: boolean } }> => 
+
+    delete: (id: string): Promise<{ data: { success: boolean } }> =>
       api.delete(`/api/integrations/${id}`),
   },
 
   // AI Task endpoints
   aiTasks: {
-    execute: (data: CreateAiTaskJobRequest): Promise<{ data: { success: boolean; data: { jobId: string } } }> => 
+    execute: (data: CreateAiTaskJobRequest): Promise<{ data: { success: boolean; data: { jobId: string } } }> =>
       api.post('/api/ai-tasks/execute', data),
 
-    getJobStatus: (jobId: string): Promise<{ data: { success: boolean; data: AiTaskJob } }> => 
+    getJobStatus: (jobId: string): Promise<{ data: { success: boolean; data: AiTaskJob } }> =>
       api.get(`/api/ai-tasks/jobs/${jobId}`),
 
-    cancelJob: (jobId: string): Promise<{ data: { success: boolean } }> => 
+    cancelJob: (jobId: string): Promise<{ data: { success: boolean } }> =>
       api.post(`/api/ai-tasks/jobs/${jobId}/cancel`),
 
     listJobs: (params?: { status?: string; limit?: number; offset?: number }): Promise<{ data: { success: boolean; data: AiTaskJob[] } }> => {
@@ -472,10 +467,10 @@ export const apiClient = {
       return api.get(`/api/ai-tasks/jobs${query ? `?${query}` : ''}`);
     },
 
-    validateColumn: (settings: any): Promise<{ data: { success: boolean; data: { isValid: boolean; errors: string[] } } }> => 
+    validateColumn: (settings: any): Promise<{ data: { success: boolean; data: { isValid: boolean; errors: string[] } } }> =>
       api.post('/api/ai-tasks/validate-column', { settings }),
 
-    getAvailableVariables: (tableId: string): Promise<{ data: { success: boolean; data: { variables: string[] } } }> => 
+    getAvailableVariables: (tableId: string): Promise<{ data: { success: boolean; data: { variables: string[] } } }> =>
       api.get(`/api/ai-tasks/tables/${tableId}/variables`),
 
     getExecutions: (jobId: string, params?: { status?: string; limit?: number; offset?: number }): Promise<{ data: { success: boolean; data: AiTaskExecution[] } }> => {
@@ -490,38 +485,45 @@ export const apiClient = {
 
   // Webhook endpoints
   webhooks: {
+    // Create table for webhook
+    createWithTable: (data: { tableName: string; description?: string }): Promise<{ data: { success: boolean; data: { tableId: string } } }> =>
+      api.post('/api/webhooks/create-with-table', data),
+
     // Incoming webhooks
     createIncoming: (data: any): Promise<{ data: { success: boolean; data: any } }> =>
       api.post('/api/webhooks', data),
-    
+
     listIncoming: (): Promise<{ data: { success: boolean; data: any[] } }> =>
       api.get('/api/webhooks'),
-    
+
     getIncoming: (tableId: string): Promise<{ data: { success: boolean; data: any } }> =>
       api.get(`/api/webhooks/table/${tableId}`),
-    
+
     deleteIncoming: (webhookId: string): Promise<{ data: { success: boolean } }> =>
       api.delete(`/api/webhooks/${webhookId}`),
-    
+
     updateIncoming: (webhookId: string, data: any): Promise<{ data: { success: boolean; data: any } }> =>
       api.put(`/api/webhooks/${webhookId}`, data),
-    
+
+    regenerateIncoming: (webhookId: string): Promise<{ data: { success: boolean; data: any } }> =>
+      api.post(`/api/webhooks/incoming/${webhookId}/regenerate`),
+
     // Outbound webhooks
     createOutbound: (data: any): Promise<{ data: { success: boolean; data: any } }> =>
       api.post('/api/webhooks/outbound', data),
-    
+
     listOutbound: (tableId?: string): Promise<{ data: { success: boolean; data: any[] } }> =>
       api.get(`/api/webhooks/outbound${tableId ? `?tableId=${tableId}` : ''}`),
-    
+
     updateOutbound: (webhookId: string, data: any): Promise<{ data: { success: boolean; data: any } }> =>
       api.put(`/api/webhooks/outbound/${webhookId}`, data),
-    
+
     deleteOutbound: (webhookId: string): Promise<{ data: { success: boolean } }> =>
       api.delete(`/api/webhooks/outbound/${webhookId}`),
-    
+
     testOutbound: (webhookId: string): Promise<{ data: { success: boolean; data: any } }> =>
       api.post(`/api/webhooks/outbound/${webhookId}/test`),
-    
+
     getDeliveries: (webhookId: string): Promise<{ data: { success: boolean; data: any[] } }> =>
       api.get(`/api/webhooks/outbound/${webhookId}/deliveries`),
   },
