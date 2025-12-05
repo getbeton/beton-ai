@@ -34,6 +34,8 @@ app.use(cors({
     'http://localhost:3001',           // Backend (for testing)
     'https://beton-ai-frontend-production.up.railway.app',  // Railway frontend
     'https://beton-ai-frontend-production.up.railway.app/', // Railway frontend with trailing slash
+    'https://app.getbeton.ai',         // Production custom domain
+    'https://app.getbeton.ai/',        // Production custom domain with trailing slash
     /^https:\/\/.*\.up\.railway\.app$/,  // Any Railway subdomain
   ],
   credentials: true,
