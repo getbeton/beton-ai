@@ -32,10 +32,9 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // In development mode, don't redirect to auth
-      if (process.env.NODE_ENV !== 'development' && process.env.NEXT_PUBLIC_DEV_MODE !== 'true') {
-        window.location.href = '/auth';
-      }
+      // Disabled: auto-redirect to auth was causing issues
+      // Users should handle authentication errors explicitly in their components
+      console.warn('Authentication required - 401 error received');
     }
     return Promise.reject(error);
   }
