@@ -13,6 +13,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:reset": "prisma migrate reset",
+    "fix:collation": "tsx scripts/fix-collation.ts",
     "lint": "eslint src --ext .ts",
     "test": "jest",
     "seed": "ts-node seed-platform-keys.ts"
@@ -60,6 +61,7 @@
     "nodemon": "^3.1.10",
     "prisma": "^5.22.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.3"
   }
 }

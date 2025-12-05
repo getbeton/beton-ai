@@ -59,6 +59,12 @@ done
 echo "🔧 Generating Prisma client..."
 npx prisma generate
 
+# Fix collation version mismatch (Railway only, one-time fix)
+if [ -n "$RAILWAY_ENVIRONMENT" ]; then
+    echo "🔧 Fixing PostgreSQL collation version..."
+    npm run fix:collation || echo "⚠️  Collation fix failed (may need manual intervention)"
+fi
+
 # Start the application
 echo "🎯 Starting the application..."
 npm start 
