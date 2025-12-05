@@ -6,24 +6,28 @@ let prisma: PrismaClient;
 
 export function getPrismaClient(): PrismaClient {
   if (!prisma) {
-    // Add connection pool limits to prevent "too many clients" errors in Railway
-    const databaseUrl = process.env.DATABASE_URL;
-    const urlWithPooling = databaseUrl?.includes('?')
-      ? `${databaseUrl}&connection_limit=5&pool_timeout=10`
-      : `${databaseUrl}?connection_limit=5&pool_timeout=10`;
-
     prisma = new PrismaClient({
       log: process.env.NODE_ENV === 'development'
         ? ['query', 'error', 'warn']
         : ['error'],
       datasources: {
         db: {
-          url: urlWithPooling,
+          url: process.env.DATABASE_URL,
         },
       },
     });
 
-    // Graceful shutdown
+    // Graceful shutdown - disconnect on process exit
+    process.on('SIGINT', async () => {
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+
+    process.on('SIGTERM', async () => {
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+
     process.on('beforeExit', async () => {
       await prisma.$disconnect();
     });
