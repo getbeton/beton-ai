@@ -1,0 +1,40 @@
+name: Auto-Rename Files
+
+on:
+  push:
+    paths:
+      - 'projects/**'
+      - 'templates/**'
+
+jobs:
+  zettel-renamer:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # We need full history or at least config to push back
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Run Renamer Script
+        run: python scripts/file_processor.py
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name 'Antigravity Bot'
+          git config --global user.email 'bot@beton.com'
+          git add projects/ templates/
+          # Only commit if there are changes
+          if [[ `git status --porcelain` ]]; then
+            git commit -m "🤖 Auto-renamed new files to Zettelkasten format"
+            git push
+          else
+            echo "No changes to commit"
+          fi

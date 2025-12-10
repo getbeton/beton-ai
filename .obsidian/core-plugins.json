@@ -1,0 +1,9 @@
+{
+  "file-explorer": true,
+  "global-search": true,
+  "switcher": true,
+  "zk-prefixer": true,
+  "daily-notes": true,
+  "templates": true,
+  "command-palette": true
+}
