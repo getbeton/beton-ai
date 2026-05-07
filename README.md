@@ -277,3 +277,17 @@ This ensures consistent database state across all environments.
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details. 
+
+
+---
+
+## About
+
+This repo predates the current [Beton](https://www.getbeton.ai/) Inspector codebase but lives on as the historical canonical implementation of the platform. The active product now ships out of [getbeton/inspector](https://github.com/getbeton/inspector).
+
+Related links:
+
+- [Beton — open-source revenue intelligence](https://www.getbeton.ai/)
+- [Inspector (active product)](https://github.com/getbeton/inspector)
+- [PostHog integration](https://www.getbeton.ai/integrations/posthog/) · [Attio integration](https://www.getbeton.ai/integrations/attio/) · [All integrations](https://www.getbeton.ai/integrations/)
+- [Open-source tools by Beton](https://www.getbeton.ai/oss-tools/) · [Blog](https://www.getbeton.ai/blog/)
