@@ -1,4 +1,22 @@
-# Beton-AI
+# Beton-AI (deprecated)
+
+> [!WARNING]
+> ## ⚠️ Beton-AI is deprecated and no longer maintained
+>
+> This was an early Beton product. We've since moved on and now build two actively
+> developed open-source repositories — please use those instead:
+>
+> - **[getbeton/inspector](https://github.com/getbeton/inspector)** — **Beton Inspector**: open-source
+>   revenue intelligence. Detects buying signals from your PostHog product-usage data and CRM, scores
+>   accounts, and routes the warmest leads to your sales team. The open-source alternative to Pocus and
+>   Common Room. (TypeScript / Next.js / Supabase, AGPL-3.0, self-hostable.)
+> - **[getbeton/inspector-ml-backend](https://github.com/getbeton/inspector-ml-backend)** — **Mason**, the
+>   agentic ML backend that powers Inspector's signal discovery.
+>
+> Stars and watchers — thank you! Please head over to **[getbeton/inspector](https://github.com/getbeton/inspector)**
+> for the current product. The original Beton-AI README is preserved below for historical reference.
+
+---
 
 An open-source automation platform that helps teams streamline their workflows and manage API integrations efficiently.
 
