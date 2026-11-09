@@ -1,6 +1,10 @@
 # Beton-AI (deprecated)
 
 > [!WARNING]
+> This repository is archived and read-only. The last Beton code is in [getbeton/inspector](https://github.com/getbeton/inspector). Beton is not in active development.
+> The team now builds [Sell to State](https://www.selltostate.com/?utm_source=github&utm_medium=referral&utm_campaign=beton-repos&utm_content=beton-ai): government tenders and contract awards from official sources in 70+ countries.
+
+> [!WARNING]
 > ## ⚠️ Beton-AI is deprecated and no longer maintained
 >
 > This was an early Beton product. We've since moved on and now build two actively
@@ -301,11 +305,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## About
 
-This repo predates the current [Beton](https://www.getbeton.ai/) Inspector codebase but lives on as the historical canonical implementation of the platform. The active product now ships out of [getbeton/inspector](https://github.com/getbeton/inspector).
+This repo predates the current [Beton](https://github.com/getbeton) Inspector codebase but lives on as the historical canonical implementation of the platform. The active product now ships out of [getbeton/inspector](https://github.com/getbeton/inspector).
 
 Related links:
 
-- [Beton — open-source revenue intelligence](https://www.getbeton.ai/)
+- [Beton — open-source revenue intelligence](https://github.com/getbeton)
 - [Inspector (active product)](https://github.com/getbeton/inspector)
-- [PostHog integration](https://www.getbeton.ai/integrations/posthog/) · [Attio integration](https://www.getbeton.ai/integrations/attio/) · [All integrations](https://www.getbeton.ai/integrations/)
-- [Open-source tools by Beton](https://www.getbeton.ai/oss-tools/) · [Blog](https://www.getbeton.ai/blog/)
+- PostHog integration · Attio integration · All integrations
+- [Open-source tools by Beton](https://github.com/getbeton) · [Blog](https://github.com/getbeton/beton-main-site/tree/master/src/data/blog)
